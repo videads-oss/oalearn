@@ -1,0 +1,6 @@
+{
+  "name": "Officers Academy",
+  "description": "Officers Academy PDF sharing and learning resource portal. High-quality study material, syllabus, exam papers with instant secure downloads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

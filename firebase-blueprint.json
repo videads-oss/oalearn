@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "pdf": {
+      "title": "PDF Document",
+      "description": "Represents a shared PDF document with third-party links",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "fileSize": { "type": "string" },
+        "pageCount": { "type": "number" },
+        "category": { "type": "string" },
+        "tags": { "type": "array" },
+        "thirdPartyViewUrl": { "type": "string" },
+        "thirdPartyDownloadUrl": { "type": "string" },
+        "clickCount": { "type": "number" },
+        "downloadCount": { "type": "number" },
+        "createdBy": { "type": "string" },
+        "creatorEmail": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "thirdPartyViewUrl", "thirdPartyDownloadUrl"]
+    },
+    "admin": {
+      "title": "Admin",
+      "description": "Represents a system administrator",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["userId", "email"]
+    },
+    "category": {
+      "title": "Category",
+      "description": "Represents a document organization category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "addedBy": { "type": "string" },
+        "addedAt": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    }
+  },
+  "firestore": {
+    "pdfs/{pdfId}": {
+      "schema": "pdf",
+      "description": "Exposes metadata about shared PDF documents"
+    },
+    "admins/{adminId}": {
+      "schema": "admin",
+      "description": "List of authorized administrators"
+    },
+    "categories/{categoryId}": {
+      "schema": "category",
+      "description": "Customizable list of study resource categories"
+    }
+  }
+}

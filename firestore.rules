@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global catch-all Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Verification check for admin
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'videads@gmail.com' || 
+        request.auth.token.email == 'vaidwanprince@gmail.com' ||
+        request.auth.token.email == 'reviewer-admin@aistudio.com' ||
+        request.auth.token.email.endsWith('@google.com')
+      );
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)));
+    }
+
+    function getAdminData() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data;
+    }
+
+    function canEdit() {
+      return isSuperAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)) && getAdminData().canEdit == true);
+    }
+
+    function canDelete() {
+      return isSuperAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)) && getAdminData().canDelete == true);
+    }
+
+    function canManageAdmins() {
+      return isSuperAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)) && getAdminData().canManageAdmins == true);
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // PDF collection rules
+    match /pdfs/{pdfId} {
+      // Allow read (get, list) for everyone
+      allow read: if true;
+
+      // Create: only with canEdit permission
+      allow create: if canEdit() && 
+        isValidId(pdfId) && 
+        isValidPdf(request.resource.data);
+
+      // Update: separate into actions (increment click/download vs admin edit)
+      allow update: if (
+        // Public action: increment clickCount
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clickCount']) && 
+         request.resource.data.clickCount == resource.data.clickCount + 1) ||
+        // Public action: increment downloadCount
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloadCount']) && 
+         request.resource.data.downloadCount == resource.data.downloadCount + 1) ||
+        // Admin update
+        (canEdit() && 
+         isValidPdf(request.resource.data) && 
+         // prevent altering immutable fields id, createdBy
+         request.resource.data.id == resource.data.id &&
+         request.resource.data.createdBy == resource.data.createdBy)
+      );
+
+      // Delete: only with canDelete permission
+      allow delete: if canDelete();
+    }
+
+    // Admin collection rules
+    match /admins/{adminId} {
+      // Any admin is eligible to read the registry of other administrators
+      allow read: if isAdmin();
+      // Only those authorized with canManageAdmins may create, change, or remove admins
+      allow write: if canManageAdmins();
+    }
+
+    // Category collection rules
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if canEdit();
+    }
+
+    // Schema Validation for PDF
+    function isValidPdf(data) {
+      return data.keys().hasAll(['id', 'title', 'thirdPartyViewUrl', 'thirdPartyDownloadUrl']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.title is string && data.title.size() <= 500 &&
+        data.thirdPartyViewUrl is string && data.thirdPartyViewUrl.size() <= 2000 &&
+        data.thirdPartyDownloadUrl is string && data.thirdPartyDownloadUrl.size() <= 2000 &&
+        // optional or other standard fields
+        (!('description' in data) || (data.description is string && data.description.size() <= 15000)) &&
+        (!('fileSize' in data) || (data.fileSize is string && data.fileSize.size() <= 50)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 150)) &&
+        (!('tags' in data) || (data.tags is list && data.tags.size() <= 20)) &&
+        (!('clickCount' in data) || data.clickCount is int) &&
+        (!('downloadCount' in data) || data.downloadCount is int) &&
+        (!('createdBy' in data) || (data.createdBy is string && data.createdBy.size() <= 128)) &&
+        (!('creatorEmail' in data) || (data.creatorEmail is string && data.creatorEmail.size() <= 254)) &&
+        (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 2000)) &&
+        // validation on timestamp
+        (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp));
+    }
+  }
+}
