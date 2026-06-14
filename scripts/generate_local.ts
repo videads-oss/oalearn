@@ -1,149 +1,26 @@
-import express from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer } from "vite";
-import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
 import { ZipArchive } from "archiver";
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
-
-  // Safe Firebase Initialization
-  let db: any = null;
-  let firebaseActive = false;
+async function generateLocalThemeZip() {
+  console.log("[Local Theme Packager] Starting WordPress theme generation...");
+  
+  const themeDir = path.join(process.cwd(), "officers-academy-theme");
+  const assetsSource = path.join(process.cwd(), "dist", "assets");
+  const themeAssetsDir = path.join(themeDir, "assets");
+  const zipDestPath = path.join(process.cwd(), "officers-academy-theme.zip");
 
   try {
-    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-    if (fs.existsSync(configPath)) {
-      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      const appFirebase = initializeApp(firebaseConfig);
-      db = getFirestore(appFirebase, firebaseConfig.firestoreDatabaseId);
-      firebaseActive = true;
-      console.log("Firebase initialized successfully on server-side!");
-    } else {
-      console.warn("firebase-applet-config.json not found. Serving with SEO fallbacks.");
+    // 1. Create directories if not exist
+    if (!fs.existsSync(themeDir)) {
+      fs.mkdirSync(themeDir, { recursive: true });
     }
-  } catch (error) {
-    console.error("Firebase server-side initialization failed:", error);
-  }
-
-  // Helper to fetch metadata from Firestore
-  async function getPdfMetadata(pdfId: string) {
-    if (!firebaseActive || !db) return null;
-    try {
-      const pdfSnap = await getDoc(doc(db, 'pdfs', pdfId));
-      if (pdfSnap.exists()) {
-        return pdfSnap.data();
-      }
-    } catch (error) {
-      console.error('Error fetching PDF metadata from Firestore:', error);
-    }
-    return null;
-  }
-
-  // Helper to inject SEO tags dynamically into the HTML shell
-  function injectSeoMetadata(html: string, pdfData: any, pdfId: string): string {
-    if (!pdfData) {
-      return html.replace(
-        /<title>.*?<\/title>/gi,
-        '<title>Study Material | Officers Academy</title>'
-      );
+    if (!fs.existsSync(themeAssetsDir)) {
+      fs.mkdirSync(themeAssetsDir, { recursive: true });
     }
 
-    const title = `${pdfData.title} | Officers Academy Study Material`;
-    const cleanDesc = (pdfData.description || 'Verified Study Material & PDF Portal for competitive exams.')
-      .replace(/[#*`_]/g, '')
-      .substring(0, 160)
-      .trim();
-
-    const imageUrl = pdfData.coverUrl || 'https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&q=80&w=800';
-    const pageUrl = `https://msarkari-com-118626.web.app/pdf/${pdfId}`;
-
-    const seoTags = `
-  <title>${title}</title>
-  <meta name="description" content="${cleanDesc}" />
-  <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="${pageUrl}" />
-  <meta property="og:title" content="${pdfData.title} - PDF Download" />
-  <meta property="og:description" content="${cleanDesc}" />
-  <meta property="og:image" content="${imageUrl}" />
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image" />
-  <meta property="twitter:url" content="${pageUrl}" />
-  <meta property="twitter:title" content="${pdfData.title} - PDF Download" />
-  <meta property="twitter:description" content="${cleanDesc}" />
-  <meta property="twitter:image" content="${imageUrl}" />
-    `;
-
-    let result = html;
-    // Remove original title tags
-    result = result.replace(/<title>.*?<\/title>/gi, '');
-    // Inject the new tags into <head>
-    result = result.replace('<head>', `<head>\n  ${seoTags}`);
-    return result;
-  }
-
-  // Determine robustly if we are running in a compiled production container state
-  const isProduction = process.env.NODE_ENV === "production" || 
-    (process.argv[1] && (process.argv[1].includes('dist/server') || process.argv[1].includes('dist\\server') || process.argv[1].endsWith('server.cjs')));
-  console.log(`[SEO Engine] Detected Environment: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
-
-  // Helper to dynamically resolve index.html location depending on the runtime context
-  function getHtmlFilePath(): string {
-    const possiblePaths = isProduction 
-      ? [
-          path.join(process.cwd(), 'dist', 'index.html'), // Absolute working directory path in production
-        ]
-      : [
-          path.join(process.cwd(), 'index.html'), // Dev environment root-level
-        ];
-
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-    // Safe ultimate fallback paths
-    return isProduction ? path.join(process.cwd(), 'dist', 'index.html') : path.join(process.cwd(), 'index.html');
-  }
-
-  // Rewrite/Redirect relative asset requests made from subpages like /pdf/:id
-  app.use((req, res, next) => {
-    // If the browser requests a static file under /pdf/ (e.g., /pdf/assets/logo.png or /pdf/favicon.ico)
-    if (req.path.startsWith('/pdf/') && (req.path.includes('/assets/') || req.path.includes('/src/') || req.path.match(/\.[a-zA-Z0-9]+$/))) {
-      const cleanPath = req.url.replace(/^\/pdf/, '');
-      console.log(`[Asset Rewriter] Transforming subpage layout asset request: ${req.url} -> ${cleanPath}`);
-      req.url = cleanPath; // Perform the internal express rewrite seamlessly
-    }
-    next();
-  });
-
-  // API Routes / Health check
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
-  });
-
-  // Dynamic WordPress Theme Packaging & Zipped Downstream Delivery Endpoint
-  app.get("/api/download-wp-theme", async (req, res) => {
-    console.log("[WP Exporter] Received WordPress Theme packaging request...");
-    const themeDir = path.join(process.cwd(), "officers-academy-theme");
-    const assetsSource = path.join(process.cwd(), "dist", "assets");
-    const themeAssetsDir = path.join(themeDir, "assets");
-
-    try {
-      // 1. Create Directories if not exist
-      if (!fs.existsSync(themeDir)) {
-        fs.mkdirSync(themeDir, { recursive: true });
-      }
-      if (!fs.existsSync(themeAssetsDir)) {
-        fs.mkdirSync(themeAssetsDir, { recursive: true });
-      }
-
-      // 2. Write/Sync WordPress Theme Files (style.css, index.php, functions.php)
-      const styleCssContent = `/*
+    // 2. Write style.css with WordPress active metadata headers
+    const styleCssContent = `/*
 Theme Name: Officers Academy
 Theme URI: https://ai.studio/build
 Author: Officers Academy Team
@@ -155,7 +32,8 @@ Text Domain: officers-academy
 Tags: responsive-layout, custom-background, featured-images, translation-ready, dark-scheme
 */`;
 
-      const indexPhpContent = `<?php
+    // 3. Write index.php
+    const indexPhpContent = `<?php
 /**
  * The main template file
  *
@@ -178,7 +56,8 @@ Tags: responsive-layout, custom-background, featured-images, translation-ready, 
 </body>
 </html>`;
 
-      const functionsPhpContent = `<?php
+    // 4. Write functions.php
+    const functionsPhpContent = `<?php
 /**
  * Officers Academy Theme Functions
  */
@@ -320,7 +199,7 @@ function officers_academy_save_fields($post_id) {
         }
     }
     $members = isset($_POST['pdf_members_only']) && $_POST['pdf_members_only'] === 'yes' ? 'yes' : 'no';
-    update_post_meta($post_id, 'pdf_members_only', $members);
+    update_post_meta($post_id, $pdf_members_only, $members);
 }
 add_action('save_post', 'officers_academy_save_fields');
 
@@ -414,14 +293,6 @@ function oa_inc_view($data) {
     return new WP_REST_Response(array('success' => true, 'clickCount' => $views), 200);
 }
 
-function oa_inc_download($data) {
-    $pid = intval($data['id']);
-    $downloads = intval(get_post_meta($pid, 'pdf_download_count', true)) ?: 0;
-    $downloads++;
-    update_post_meta($pid, 'pdf_download_count', $downloads);
-    return new WP_REST_Response(array('success' => true, 'downloadCount' => $downloads), 200);
-}
-
 // Intercept routing so deep reloading works beautifully in SPA
 function officers_academy_spa_routing() {
     $uri = $_SERVER['REQUEST_URI'];
@@ -438,133 +309,57 @@ function officers_academy_spa_routing() {
 add_action('template_redirect', 'officers_academy_spa_routing');
 `;
 
-      fs.writeFileSync(path.join(themeDir, "style.css"), styleCssContent);
-      fs.writeFileSync(path.join(themeDir, "index.php"), indexPhpContent);
-      fs.writeFileSync(path.join(themeDir, "functions.php"), functionsPhpContent);
+    fs.writeFileSync(path.join(themeDir, "style.css"), styleCssContent);
+    fs.writeFileSync(path.join(themeDir, "index.php"), indexPhpContent);
+    fs.writeFileSync(path.join(themeDir, "functions.php"), functionsPhpContent);
+    console.log("[Local Theme Packager] Created WordPress core PHP/CSS theme files.");
 
-      // 3. Clear and copy fresh assets from dist/assets/ to themeDir/assets/
-      if (fs.existsSync(assetsSource)) {
-        if (!fs.existsSync(themeAssetsDir)) {
-          fs.mkdirSync(themeAssetsDir, { recursive: true });
-        } else {
-          const localAssets = fs.readdirSync(themeAssetsDir);
-          for (const file of localAssets) {
-            fs.unlinkSync(path.join(themeAssetsDir, file));
-          }
-        }
-
-        const buildFiles = fs.readdirSync(assetsSource);
-        for (const file of buildFiles) {
-          fs.copyFileSync(path.join(assetsSource, file), path.join(themeAssetsDir, file));
-        }
-        console.log(`[WP Exporter] Copied ${buildFiles.length} client asset elements to theme folder.`);
+    // 5. Clear and copy fresh compiled React assets from dist/assets/
+    if (fs.existsSync(assetsSource)) {
+      if (!fs.existsSync(themeAssetsDir)) {
+        fs.mkdirSync(themeAssetsDir, { recursive: true });
       } else {
-        console.warn("[WP Exporter] Warning: No compiled client assets found under dist/assets. Build the app first.");
-      }
-
-      // 4. Archive theme folder and Stream back to Express res stream!
-      res.setHeader("Content-Disposition", "attachment; filename=officers-academy-theme.zip");
-      res.setHeader("Content-Type", "application/zip");
-
-      const archive = new ZipArchive({ zlib: { level: 9 } });
-      archive.on("error", (archiveErr) => {
-        console.error("[WP Exporter] Archive failed:", archiveErr);
-        res.status(500).send("Dynamic WP Theme zipping error occurred.");
-      });
-
-      archive.pipe(res);
-      // Append the theme directory under 'officers-academy-theme' inside the zip
-      archive.directory(themeDir, "officers-academy-theme");
-      await archive.finalize();
-
-      console.log("[WP Exporter] Theme ZIP package generated and delivered successfully!");
-    } catch (e) {
-      console.error("[WP Exporter] Severe error in exporter endpoint:", e);
-      res.status(500).send("Severe server-side theme compression failed.");
-    }
-  });
-
-  // Intercept PDF page requests for dynamic server-side SEO metadata injection
-  // Supporting optional trailing slashes at the Express router match level
-  app.get(["/pdf/:id", "/pdf/:id/"], async (req, res, next) => {
-    let pdfId = req.params.id;
-
-    console.log(`[SEO Engine] Intercepted PDF subpage request: ${req.originalUrl}, PDF ID parsed: ${pdfId}`);
-
-    // Skip assets or static files that might match this route
-    if (!pdfId || pdfId.includes('.') || pdfId === 'assets' || pdfId === 'src') {
-      return next();
-    }
-
-    // Clean trailing slash if present
-    if (pdfId.endsWith('/')) {
-      pdfId = pdfId.slice(0, -1);
-    }
-
-    try {
-      const pdfData = await getPdfMetadata(pdfId);
-      const htmlPath = getHtmlFilePath();
-      let htmlFileContent = fs.readFileSync(htmlPath, 'utf-8');
-
-      if (!isProduction) {
-        const vite = await getViteInstance();
-        // Transform index.html with Vite's injection helper in dev mode
-        htmlFileContent = await vite.transformIndexHtml(req.originalUrl, htmlFileContent);
-      }
-
-      const finalizedHtml = injectSeoMetadata(htmlFileContent, pdfData, pdfId);
-      res.status(200).set({ "Content-Type": "text/html" }).send(finalizedHtml);
-    } catch (err) {
-      console.error("[SEO Engine] Error during PDF page request - falling back to raw SPA index.html:", err);
-      // Fail-safe: load plain index.html layout so the frontend React SPA can boot up and render without crashing
-      try {
-        const htmlPath = getHtmlFilePath();
-        let htmlFileContent = fs.readFileSync(htmlPath, 'utf-8');
-        
-        if (!isProduction) {
-          const vite = await getViteInstance();
-          htmlFileContent = await vite.transformIndexHtml(req.originalUrl, htmlFileContent);
+        const localAssets = fs.readdirSync(themeAssetsDir);
+        for (const file of localAssets) {
+          fs.unlinkSync(path.join(themeAssetsDir, file));
         }
-        res.status(200).set({ "Content-Type": "text/html" }).send(htmlFileContent);
-      } catch (innerErr) {
-        console.error("[SEO Engine] Severe fallback error, sending default shell:", innerErr);
-        // Absolute fallback response
-        res.status(500).send("Internal Server Error");
       }
-    }
-  });
 
-  // Lazy cache Vite instance to ensure correct dev server loading
-  let viteInstance: any = null;
-  async function getViteInstance() {
-    if (!viteInstance) {
-      viteInstance = await createViteServer({
-        server: { middlewareMode: true },
-        appType: "spa",
+      const buildFiles = fs.readdirSync(assetsSource);
+      for (const file of buildFiles) {
+        fs.copyFileSync(path.join(assetsSource, file), path.join(themeAssetsDir, file));
+      }
+      console.log(`[Local Theme Packager] Custom SPA bundle assets synced: ${buildFiles.length} files copied.`);
+    } else {
+      console.warn("[Local Theme Packager] Warning: No compiled client assets found under dist/assets. Build the app first.");
+    }
+
+    // 6. Zip the directory to officers-academy-theme.zip at the process root
+    console.log("[Local Theme Packager] Packaging directory into zip...");
+    const destStream = fs.createWriteStream(zipDestPath);
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+
+    await new Promise<void>((resolve, reject) => {
+      destStream.on("close", () => {
+        console.log(`[Local Theme Packager] Successfully wrote ${archive.pointer()} total bytes to: ${zipDestPath}`);
+        resolve();
       });
-    }
-    return viteInstance;
-  }
 
-  // Vite middlewares/SPA static routing setup
-  if (!isProduction) {
-    const vite = await getViteInstance();
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    // Serve static frontend files
-    app.use(express.static(distPath, { index: false }));
-    
-    // SPA catch-all for any other pathways
-    app.get('*', (req, res) => {
-      const htmlPath = getHtmlFilePath();
-      res.sendFile(htmlPath);
+      archive.on("error", (err) => {
+        reject(err);
+      });
+
+      archive.pipe(destStream);
+      archive.directory(themeDir, "officers-academy-theme");
+      archive.finalize();
     });
-  }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+    console.log("[Local Theme Packager] Clean up temporary theme build folder...");
+    // Optional - Keep the officers-academy-theme folder or delete it? We can leave it for debug, but zip is ready!
+    console.log("[Local Theme Packager] Complete! ZIP is ready at root.");
+  } catch (error) {
+    console.error("[Local Theme Packager] Fatal error occurred during theme compilation:", error);
+  }
 }
 
-startServer();
+generateLocalThemeZip();

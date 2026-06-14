@@ -7,6 +7,7 @@ import { db, auth, loginWithGoogle, logoutUser, handleFirestoreError, OperationT
 import { PdfDocument, AdminPermissions, Category } from './types';
 import { translations, Language } from './lib/translations';
 import { INITIAL_FALLBACK_PDFS } from './lib/mockData';
+import { safeLocalStorage } from './lib/safeStorage';
 
 // Components
 import PdfCard from './components/PdfCard';
@@ -30,7 +31,7 @@ export default function App() {
   // Bookmarks Local Storage Controller
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem('officers_academy_bookmarks') || '[]');
+      return JSON.parse(safeLocalStorage.getItem('officers_academy_bookmarks') || '[]');
     } catch {
       return [];
     }
@@ -42,20 +43,20 @@ export default function App() {
       const next = prev.includes(pdfId) 
         ? prev.filter(id => id !== pdfId)
         : [...prev, pdfId];
-      localStorage.setItem('officers_academy_bookmarks', JSON.stringify(next));
+      safeLocalStorage.setItem('officers_academy_bookmarks', JSON.stringify(next));
       return next;
     });
   };
 
   // Language state: default to Hindi
   const [lang, setLang] = useState<Language>(() => {
-    return (localStorage.getItem('preferredLang') as Language) || 'hi';
+    return (safeLocalStorage.getItem('preferredLang') as Language) || 'hi';
   });
 
   const handleToggleLang = () => {
     setLang(prev => {
       const next = prev === 'en' ? 'hi' : 'en';
-      localStorage.setItem('preferredLang', next);
+      safeLocalStorage.setItem('preferredLang', next);
       return next;
     });
   };
@@ -115,12 +116,34 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
 
-  // Database PDF catalog
-  const [pdfs, setPdfs] = useState<PdfDocument[]>([]);
-  const [dbLoading, setDbLoading] = useState(true);
+  // Database PDF catalog containing initial mockData / cached indexes instantly to defeat loading hangs!
+  const [pdfs, setPdfs] = useState<PdfDocument[]>(() => {
+    try {
+      const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Error reading cache: ", e);
+    }
+    return INITIAL_FALLBACK_PDFS;
+  });
+  const [dbLoading, setDbLoading] = useState(false);
 
-  // Dynamic categories list from Firestore
-  const [categoriesList, setCategoriesList] = useState<string[]>([]);
+  // Dynamic categories list from Firestore with sensible instant defaults
+  const [categoriesList, setCategoriesList] = useState<string[]>(() => {
+    return [
+      'Study Notes',
+      'Previous Year Papers',
+      'Syllabus & Curriculum',
+      'Exam Series',
+      'E-Books & Competitions',
+      'General Information'
+    ];
+  });
 
   // Search query & category filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -284,22 +307,41 @@ export default function App() {
 
   // Fetch documents for public show catalog
   const fetchPublicDocs = async () => {
-    setDbLoading(true);
+    if (pdfs.length === 0) {
+      setDbLoading(true);
+    }
     
     const loadMocksAndSync = (wasError: boolean = false) => {
-      const cached = localStorage.getItem('officers_academy_fallback_pdfs');
+      const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
       if (cached) {
         try {
           setPdfs(JSON.parse(cached));
         } catch {
           setPdfs(INITIAL_FALLBACK_PDFS);
-          localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(INITIAL_FALLBACK_PDFS));
+          safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(INITIAL_FALLBACK_PDFS));
         }
       } else {
         setPdfs(INITIAL_FALLBACK_PDFS);
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(INITIAL_FALLBACK_PDFS));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(INITIAL_FALLBACK_PDFS));
       }
     };
+
+    // WordPress dynamic runtime detection
+    if (typeof window !== 'undefined' && (window as any).wpData) {
+      try {
+        const wpBaseUrl = (window as any).wpData.restBaseUrl;
+        const response = await fetch(`${wpBaseUrl}/pdfs`);
+        if (response.ok) {
+          const wpPdfs = await response.json();
+          setPdfs(wpPdfs);
+          safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(wpPdfs));
+          setDbLoading(false);
+          return;
+        }
+      } catch (wpError) {
+        console.error("WordPress active API listing failure, falling back to cached indices: ", wpError);
+      }
+    }
 
     try {
       const q = query(collection(db, 'pdfs'), orderBy('createdAt', 'desc'));
@@ -313,7 +355,7 @@ export default function App() {
         loadMocksAndSync();
       } else {
         setPdfs(docsList);
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(docsList));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(docsList));
       }
     } catch (err) {
       console.error("Failed to load PDF indices from Firebase: ", err);
@@ -331,6 +373,21 @@ export default function App() {
   };
 
   const fetchCategories = async () => {
+    // WordPress dynamic runtime detection
+    if (typeof window !== 'undefined' && (window as any).wpData) {
+      try {
+        const wpBaseUrl = (window as any).wpData.restBaseUrl;
+        const response = await fetch(`${wpBaseUrl}/categories`);
+        if (response.ok) {
+          const wpCats = await response.json();
+          setCategoriesList(wpCats);
+          return;
+        }
+      } catch (wpCatError) {
+        console.error("WordPress categories REST fetching error: ", wpCatError);
+      }
+    }
+
     try {
       const q = query(collection(db, 'categories'));
       const querySnapshot = await getDocs(q);

@@ -9,6 +9,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { PdfDocument } from '../types';
 import { translations, Language } from '../lib/translations';
 import { INITIAL_FALLBACK_PDFS } from '../lib/mockData';
+import { safeLocalStorage, safeSessionStorage } from '../lib/safeStorage';
 
 interface PdfDetailsProps {
   pdfId: string;
@@ -93,7 +94,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
           }
         }
         
-        const cached = localStorage.getItem('officers_academy_fallback_pdfs');
+        const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
         let currentList: PdfDocument[] = cached ? JSON.parse(cached) : [];
         if (!Array.isArray(currentList)) currentList = [];
         if (currentList.length === 0) currentList = INITIAL_FALLBACK_PDFS;
@@ -101,11 +102,11 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
         const found = currentList.find(p => p.id === pdfId);
         if (found) {
           const sessionKey = `viewed_pdf_${pdfId}`;
-          const alreadyViewed = sessionStorage.getItem(sessionKey);
+          const alreadyViewed = safeSessionStorage.getItem(sessionKey);
           let updated = { ...found };
           
           if (!alreadyViewed) {
-            sessionStorage.setItem(sessionKey, 'true');
+            safeSessionStorage.setItem(sessionKey, 'true');
             updated = {
               ...found,
               clickCount: (found.clickCount || 0) + 1
@@ -114,7 +115,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
             if (index !== -1) {
               currentList[index] = updated;
             }
-            localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
+            safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
           }
           
           setPdf(updated);
@@ -125,6 +126,21 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
           );
         }
       };
+
+      // If WordPress is active, load from WP REST API or fallback storage instead of Firestore!
+      if (typeof window !== 'undefined' && (window as any).wpData) {
+        tryFallbackDetails();
+        setLoading(false);
+        
+        // Let's also dynamically record a view in WordPress via endpoint!
+        try {
+          const wpBaseUrl = (window as any).wpData.restBaseUrl;
+          fetch(`${wpBaseUrl}/pdf/${pdfId}/view`, { method: 'POST' });
+        } catch (wpClickErr) {
+          console.warn("WordPress metrics counting error: ", wpClickErr);
+        }
+        return;
+      }
 
       try {
         const docRef = doc(db, 'pdfs', pdfId);
@@ -140,11 +156,11 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
 
           // Increment view count initially upon landing on the intermediate URL page, avoiding session double counter
           const sessionKey = `viewed_pdf_${pdfId}`;
-          const alreadyViewed = sessionStorage.getItem(sessionKey);
+          const alreadyViewed = safeSessionStorage.getItem(sessionKey);
 
           if (!alreadyViewed) {
             try {
-              sessionStorage.setItem(sessionKey, 'true');
+              safeSessionStorage.setItem(sessionKey, 'true');
               await updateDoc(docRef, {
                 clickCount: increment(1)
               });
@@ -152,7 +168,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
               setPdf(prev => prev ? { ...prev, clickCount: (prev.clickCount || 0) + 1 } : null);
             } catch (e) {
               console.warn("View tracking failed due to rules or connectivity: ", e);
-              sessionStorage.removeItem(sessionKey);
+              safeSessionStorage.removeItem(sessionKey);
               tryFallbackDetails();
             }
           }
@@ -253,10 +269,45 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
     setProgress(0);
 
     // Sync state locally
-    const cached = localStorage.getItem('officers_academy_fallback_pdfs');
+    const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
     let currentList: PdfDocument[] = cached ? JSON.parse(cached) : [];
     if (!Array.isArray(currentList)) currentList = [];
     const index = currentList.findIndex(p => p.id === pdf.id);
+
+    // Support WordPress metrics tracking natively!
+    if (typeof window !== 'undefined' && (window as any).wpData) {
+      try {
+        const wpBaseUrl = (window as any).wpData.restBaseUrl;
+        const endpoint = type === 'download' ? 'download' : 'view';
+        const response = await fetch(`${wpBaseUrl}/pdf/${pdf.id}/${endpoint}`, { method: 'POST' });
+        if (response.ok) {
+          const result = await response.json();
+          if (type === 'download') {
+            setPdf(prev => prev ? { ...prev, downloadCount: result.downloadCount } : null);
+          } else {
+            setPdf(prev => prev ? { ...prev, clickCount: result.clickCount } : null);
+          }
+        }
+      } catch (wpErr) {
+        console.warn("WordPress metrics tracking failed: ", wpErr);
+      }
+      
+      // Update local storage in WordPress mode as well
+      if (index !== -1) {
+        currentList[index] = {
+          ...currentList[index],
+          clickCount: type === 'view' ? (currentList[index].clickCount || 0) + 1 : (currentList[index].clickCount || 0),
+          downloadCount: type === 'download' ? (currentList[index].downloadCount || 0) + 1 : (currentList[index].downloadCount || 0)
+        };
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
+      }
+      
+      // Proceed to secure ad redirect screen
+      setRedirectType(type);
+      setProgress(0);
+      setTimerCountdown(30);
+      return;
+    }
 
     // Save increment in Firestore database first
     try {
@@ -280,7 +331,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
           clickCount: type === 'view' ? (currentList[index].clickCount || 0) + 1 : (currentList[index].clickCount || 0),
           downloadCount: type === 'download' ? (currentList[index].downloadCount || 0) + 1 : (currentList[index].downloadCount || 0)
         };
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
       }
     } catch (e) {
       console.warn("Tracking update missed, falling back to local state: ", e);
@@ -300,7 +351,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
           downloadCount: type === 'download' ? (currentList[index].downloadCount || 0) + 1 : (currentList[index].downloadCount || 0)
         };
         currentList[index] = updated;
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
         setPdf(updated);
       } else {
         setPdf(prev => {

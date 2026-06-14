@@ -10,6 +10,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { PdfDocument, AdminPermissions, AdminUser, Category } from '../types';
 import { translations, Language } from '../lib/translations';
 import { INITIAL_FALLBACK_PDFS } from '../lib/mockData';
+import { safeLocalStorage } from '../lib/safeStorage';
 
 interface AdminPanelProps {
   userEmail: string;
@@ -79,7 +80,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
     setErrorMessage(null);
     
     const loadFallbackCatalog = () => {
-      const cached = localStorage.getItem('officers_academy_fallback_pdfs');
+      const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
       if (cached) {
         try {
           setPdfs(JSON.parse(cached));
@@ -103,7 +104,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
         loadFallbackCatalog();
       } else {
         setPdfs(docsList);
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(docsList));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(docsList));
       }
     } catch (error) {
       console.error("Failed to load PDF indices from Firebase: ", error);
@@ -508,7 +509,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
         await setDoc(docRef, payload, { merge: true });
         
         // Sync locally
-        const cached = localStorage.getItem('officers_academy_fallback_pdfs');
+        const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
         let currentList: PdfDocument[] = cached ? JSON.parse(cached) : [];
         if (!Array.isArray(currentList)) currentList = [];
         const index = currentList.findIndex(p => p.id === targetDocId);
@@ -517,7 +518,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
         } else {
           currentList.unshift(mergedPayload);
         }
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
 
         setSuccessMessage(
           editingPdf 
@@ -538,7 +539,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
           console.error("Firestore Error Details: ", (logError as Error).message);
         }
 
-        const cached = localStorage.getItem('officers_academy_fallback_pdfs');
+        const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
         let currentList: PdfDocument[] = cached ? JSON.parse(cached) : [];
         if (!Array.isArray(currentList)) currentList = [];
         const index = currentList.findIndex(p => p.id === targetDocId);
@@ -547,7 +548,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
         } else {
           currentList.unshift(mergedPayload);
         }
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
 
         setSuccessMessage(
           editingPdf 
@@ -594,10 +595,10 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
           : "Resource reference deleted successfully!"
         );
         
-        const cached = localStorage.getItem('officers_academy_fallback_pdfs');
+        const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
         let currentList: PdfDocument[] = cached ? JSON.parse(cached) : [];
         currentList = currentList.filter(p => p.id !== pdfId);
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
         fetchAllDocs();
       } catch (dbErr) {
         console.warn("DB delete failed, falling back to LocalStorage sandbox: ", dbErr);
@@ -608,10 +609,10 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
           console.error("Firestore Error Details: ", (logError as Error).message);
         }
 
-        const cached = localStorage.getItem('officers_academy_fallback_pdfs');
+        const cached = safeLocalStorage.getItem('officers_academy_fallback_pdfs');
         let currentList: PdfDocument[] = cached ? JSON.parse(cached) : [];
         currentList = currentList.filter(p => p.id !== pdfId);
-        localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
+        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
 
         setSuccessMessage(lang === 'hi' 
           ? "दस्तावेज़ सफलतापूर्वक सूची से हटा दिया गया (सैंडबॉक्स मोड)!" 
@@ -651,6 +652,34 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
     pdf.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
     pdf.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const isWordPress = typeof window !== 'undefined' && (window as any).wpData !== undefined;
+  if (isWordPress) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8 antialiased font-sans">
+        <div className="bg-white border-4 border-black p-6 sm:p-8 shadow-[6px_6px_0px_#000] text-center">
+          <div className="bg-blue-100 border-2 border-black inline-flex p-3 rounded-none mb-4">
+            <ShieldCheck className="h-10 w-10 text-blue-800" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black uppercase text-black mb-3">
+            {lang === 'hi' ? 'वर्डप्रेस एडमिन मोड सक्रिय' : 'WordPress Admin Mode Active'}
+          </h2>
+          <p className="text-sm font-bold text-slate-700 mb-6 max-w-lg mx-auto">
+            {lang === 'hi' 
+              ? 'अब आपको यहाँ से PDFs या श्रेणियां अपलोड करने की ज़रुरत नहीं है! आप अपनी आधिकारिक वर्डप्रेस एडमिन पैनल में जाकर सीधे "PDFs" सेक्शन में नया पीडीएफ, उनकी फाइल, केटेगरी, कवर फोटो जोड़ और मैनेज कर सकते हैं।' 
+              : 'You do not need to upload or manage PDFs here anymore! You can directly manage your full PDF catalog, custom domains, downloads, and categories straight from your native WordPress Dashboard Sidebar under the "PDFs" menu.'}
+          </p>
+          <a
+            href="/wp-admin/edit.php?post_type=pdf"
+            className="inline-flex items-center space-x-2 bg-[#FFE000] text-black border-2 border-black px-5 py-2.5 font-bold shadow-[3px_3px_0px_#000] hover:bg-yellow-300 transition-all cursor-pointer active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_#000]"
+          >
+            <span>{lang === 'hi' ? 'वर्डप्रेस डैशबोर्ड खोलें' : 'Open WordPress Dashboard'}</span>
+            <ArrowRight className="h-4 w-4 stroke-[2.5]" />
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-0 sm:px-4 py-4 sm:py-6 text-slate-800 antialiased font-sans">
