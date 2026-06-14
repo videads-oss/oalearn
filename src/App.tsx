@@ -134,7 +134,10 @@ export default function App() {
     const handlePathRouter = () => {
       const path = window.location.pathname;
       if (path.startsWith('/pdf/')) {
-        const id = path.replace('/pdf/', '');
+        let id = path.replace('/pdf/', '');
+        if (id.endsWith('/')) {
+          id = id.slice(0, -1);
+        }
         if (id) {
           setSelectedPdfId(id);
           setCurrentRoute('details');

@@ -9,22 +9,35 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Initialize Firebase for server-side SEO metadata lookups
-  const firebaseConfig = JSON.parse(
-    fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf-8')
-  );
-  const appFirebase = initializeApp(firebaseConfig);
-  const db = getFirestore(appFirebase, firebaseConfig.firestoreDatabaseId);
+  // Safe Firebase Initialization
+  let db: any = null;
+  let firebaseActive = false;
+
+  try {
+    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      const appFirebase = initializeApp(firebaseConfig);
+      db = getFirestore(appFirebase, firebaseConfig.firestoreDatabaseId);
+      firebaseActive = true;
+      console.log("Firebase initialized successfully on server-side!");
+    } else {
+      console.warn("firebase-applet-config.json not found. Serving with SEO fallbacks.");
+    }
+  } catch (error) {
+    console.error("Firebase server-side initialization failed:", error);
+  }
 
   // Helper to fetch metadata from Firestore
   async function getPdfMetadata(pdfId: string) {
+    if (!firebaseActive || !db) return null;
     try {
       const pdfSnap = await getDoc(doc(db, 'pdfs', pdfId));
       if (pdfSnap.exists()) {
         return pdfSnap.data();
       }
     } catch (error) {
-      console.error('Error fetching PDF metadata:', error);
+      console.error('Error fetching PDF metadata from Firestore:', error);
     }
     return null;
   }
@@ -34,7 +47,7 @@ async function startServer() {
     if (!pdfData) {
       return html.replace(
         /<title>.*?<\/title>/gi,
-        '<title>Material Not Found | Officers Academy</title>'
+        '<title>Study Material | Officers Academy</title>'
       );
     }
 
@@ -78,8 +91,19 @@ async function startServer() {
   });
 
   // Intercept PDF page requests for dynamic server-side SEO metadata injection
-  app.get("/pdf/:id", async (req, res, next) => {
-    const pdfId = req.params.id;
+  app.get(["/pdf/:id", "/pdf/:id/"], async (req, res, next) => {
+    let pdfId = req.params.id;
+
+    // Skip assets or static files that might match this route
+    if (!pdfId || pdfId.includes('.')) {
+      return next();
+    }
+
+    // Clean trailing slash if present
+    if (pdfId.endsWith('/')) {
+      pdfId = pdfId.slice(0, -1);
+    }
+
     try {
       const pdfData = await getPdfMetadata(pdfId);
       
@@ -96,8 +120,22 @@ async function startServer() {
       const finalizedHtml = injectSeoMetadata(htmlFileContent, pdfData, pdfId);
       res.status(200).set({ "Content-Type": "text/html" }).send(finalizedHtml);
     } catch (err) {
-      console.error("Express routing error during PDF page request:", err);
-      next(err);
+      console.error("Express routing error during PDF page request - falling back to normal SPA index.html:", err);
+      // Fail-safe: load plain index.html layout so the frontend React SPA can boot up and render without crashing
+      try {
+        let htmlFileContent = '';
+        if (process.env.NODE_ENV !== "production") {
+          htmlFileContent = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
+          const vite = await getViteInstance();
+          htmlFileContent = await vite.transformIndexHtml(req.originalUrl, htmlFileContent);
+        } else {
+          htmlFileContent = fs.readFileSync(path.join(process.cwd(), 'dist', 'index.html'), 'utf-8');
+        }
+        res.status(200).set({ "Content-Type": "text/html" }).send(htmlFileContent);
+      } catch (innerErr) {
+        // Ultimate backup response
+        res.status(500).send("Internal Server Error");
+      }
     }
   });
 
