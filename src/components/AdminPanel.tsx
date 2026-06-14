@@ -655,29 +655,29 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 text-slate-800 antialiased font-sans">
       
-      {/* Welcome Title */}
-      <div className="bg-slate-55/40 backdrop-blur-md rounded-3xl p-5 mb-6 border border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Welcome Title - Responsive Administrative Header */}
+      <div className="bg-white border-2 border-slate-900 rounded-2xl p-4 sm:p-5 mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-[4px_4px_0px_#000]">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-800 flex items-center space-x-2">
-            <LayoutDashboard className="h-5.5 w-5.5 text-indigo-500" />
+          <h2 className="text-base sm:text-lg font-sketch font-extrabold tracking-tight text-slate-900 flex items-center space-x-2">
+            <LayoutDashboard className="h-5 w-5 text-indigo-600 stroke-[2.5]" />
             <span>{t.welcomeAdmin}</span>
           </h2>
           <p className="text-[10px] text-slate-500 font-mono mt-1">
-            {t.restrictedAdmin} <span className="bg-indigo-50 px-2 py-0.5 rounded-full font-bold text-indigo-700">{userEmail}</span>
+            {t.restrictedAdmin} <span className="bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md font-bold text-indigo-700">{userEmail}</span>
           </p>
         </div>
 
-        {/* Tab triggers in robust sketch style */}
-        <div className="flex bg-slate-100/80 p-1.5 rounded-2xl gap-1">
+        {/* Tab triggers in robust sketch style with horizontal scrolling support on mobile */}
+        <div className="flex bg-slate-150 border border-slate-300 p-1 rounded-xl gap-1 overflow-x-auto scrollbar-none select-none max-w-full whitespace-nowrap shrink-0">
           <button
             onClick={() => {
               setActiveTab('manage');
               resetForm();
             }}
-            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-sketch font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 shrink-0 cursor-pointer ${
               activeTab === 'manage'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <FolderKanban className="h-3.5 w-3.5" />
@@ -688,10 +688,10 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
               resetForm();
               setActiveTab('editor');
             }}
-            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-sketch font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 shrink-0 cursor-pointer ${
               activeTab === 'editor' && !editingPdf
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -703,10 +703,10 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
               resetForm();
               setActiveTab('categories');
             }}
-            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-sketch font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 shrink-0 cursor-pointer ${
               activeTab === 'categories'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <FolderPlus className="h-3.5 w-3.5" />
@@ -719,10 +719,10 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
                 resetForm();
                 setActiveTab('admins');
               }}
-              className={`px-4 py-2 rounded-xl font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 ${
+              className={`px-3 py-1.5 rounded-lg font-sketch font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 shrink-0 cursor-pointer ${
                 activeTab === 'admins'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ShieldCheck className="h-3.5 w-3.5" />
@@ -760,34 +760,34 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
       {activeTab === 'manage' ? (
         <>
           {/* Quick Metrics Widget Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white rounded-3xl p-5 flex items-center space-x-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">
-              <div className="bg-indigo-50 p-3 rounded-2xl text-indigo-600">
-                <FileText className="h-5 w-5" />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5 mb-6">
+            <div className="bg-white border-2 border-slate-900 rounded-xl p-3.5 flex items-center space-x-3 shadow-[2.5px_2.5px_0px_#000] col-span-1 select-none">
+              <div className="bg-indigo-50 border border-indigo-200 p-2 sm:p-2.5 rounded-lg text-indigo-650 shrink-0">
+                <FileText className="h-4.5 w-4.5 stroke-[2.2]" />
               </div>
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider font-sans">{t.totalUploads}</span>
-                <span className="text-xl font-bold text-slate-800 font-monoLeading">{totalUploadsCount}</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-3xl p-5 flex items-center space-x-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">
-              <div className="bg-violet-50 p-3 rounded-2xl text-violet-600">
-                <Eye className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider font-sans">{t.totalClicks}</span>
-                <span className="text-xl font-bold text-slate-800 font-monoLeading">{totalViewsAccumulated}</span>
+              <div className="min-w-0">
+                <span className="block text-[8px] uppercase font-sketch font-bold text-slate-550 tracking-wider leading-none mb-1">{t.totalUploads}</span>
+                <span className="text-sm sm:text-base font-black text-slate-900 font-mono leading-none">{totalUploadsCount}</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl p-5 flex items-center space-x-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)]">
-              <div className="bg-emerald-50 p-3 rounded-2xl text-emerald-600">
-                <Download className="h-5 w-5" />
+            <div className="bg-white border-2 border-slate-900 rounded-xl p-3.5 flex items-center space-x-3 shadow-[2.5px_2.5px_0px_#000] col-span-1 select-none">
+              <div className="bg-amber-50 border border-amber-200 p-2 sm:p-2.5 rounded-lg text-amber-600 shrink-0">
+                <Eye className="h-4.5 w-4.5 stroke-[2.2]" />
               </div>
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider font-sans">{t.accumulatedDownloads}</span>
-                <span className="text-xl font-bold text-slate-800 font-monoLeading">{totalDownloadsAccumulated}</span>
+              <div className="min-w-0">
+                <span className="block text-[8px] uppercase font-sketch font-bold text-slate-550 tracking-wider leading-none mb-1">{t.totalClicks}</span>
+                <span className="text-sm sm:text-base font-black text-slate-900 font-mono leading-none">{totalViewsAccumulated}</span>
+              </div>
+            </div>
+
+            <div className="bg-white border-2 border-slate-900 rounded-xl p-3.5 flex items-center space-x-3 shadow-[2.5px_2.5px_0px_#000] col-span-2 md:col-span-1 select-none">
+              <div className="bg-emerald-50 border border-emerald-200 p-2 sm:p-2.5 rounded-lg text-[#10b981] shrink-0">
+                <Download className="h-4.5 w-4.5 stroke-[2.2]" />
+              </div>
+              <div className="min-w-0">
+                <span className="block text-[8px] uppercase font-sketch font-bold text-slate-550 tracking-wider leading-none mb-1">{t.accumulatedDownloads}</span>
+                <span className="text-sm sm:text-base font-black text-slate-900 font-mono leading-none">{totalDownloadsAccumulated}</span>
               </div>
             </div>
           </div>
@@ -897,60 +897,81 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
                   </table>
                 </div>
 
-                {/* Mobile View Document Cards */}
-                <div className="block md:hidden divide-y divide-slate-200 bg-white">
+                {/* Mobile View Document Cards - PREMIUM HIGH-QUALITY DASHBOARD CARDS */}
+                <div className="block md:hidden space-y-4 px-2 select-none">
                   {filteredPdfs.map((pdf) => (
-                    <div key={pdf.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-col space-y-3.5">
-                      <div className="flex items-start justify-between gap-3">
+                    <div 
+                      key={pdf.id} 
+                      className="bg-white border-2 border-slate-900 rounded-2xl p-4 flex flex-col space-y-3.5 animate-fade-in relative overflow-hidden shadow-[4px_4px_0px_#000] hover:shadow-[5px_5px_0px_#000] transition duration-200"
+                    >
+                      <div className="flex items-start justify-between gap-3.5">
                         <div className="min-w-0 flex-1">
-                          <span className="inline-block text-[8.5px] font-mono font-extrabold bg-[#FCFAF2] border border-slate-400 text-slate-700 px-2 py-0.5 rounded mb-1.5 uppercase tracking-wide">
-                            {pdf.category}
-                          </span>
-                          <h4 className="text-xs font-black text-slate-900 leading-snug uppercase">
+                          {/* Badge layout */}
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            <span className="inline-block text-[8px] font-mono font-extrabold bg-amber-50 border border-amber-300 text-amber-800 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                              {pdf.category}
+                            </span>
+                            {(pdf.fileSize || pdf.pageCount) && (
+                              <span className="inline-block text-[8px] font-mono font-bold bg-slate-100 border border-slate-300 text-slate-650 px-2 py-0.5 rounded-md">
+                                {pdf.fileSize || '1.5 MB'} • {pdf.pageCount || 1} {lang === 'hi' ? 'पृष्ठ' : 'Pages'}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <h4 className="text-xs sm:text-sm font-sans font-black text-slate-900 leading-snug tracking-tight uppercase break-words">
                             {pdf.title}
                           </h4>
-                          <span className="inline-block text-[10px] font-mono font-semibold text-slate-500 mt-1">
-                            ID Slug: #{pdf.id}
-                          </span>
+                          
+                          <div className="flex items-center space-x-1.5 mt-2.5">
+                            <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-500 font-mono font-bold px-1.5 py-0.5 rounded-md">
+                              id: #{pdf.id}
+                            </span>
+                            {pdf.membersOnly && (
+                              <span className="text-[8.5px] bg-rose-55 border border-rose-200 text-rose-700 font-sans font-bold px-1.5 py-0.5 rounded-md">
+                                {lang === 'hi' ? 'सदस्य केवल' : 'Premium Only'}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="bg-amber-100 text-amber-950 p-2.5 rounded-xl border-2 border-slate-900 flex-shrink-0 shadow-[2px_2px_0px_#000]">
+
+                        <div className="bg-amber-100 text-amber-950 p-2.5 rounded-xl border-2 border-slate-900 flex-shrink-0 shadow-[2px_2px_0px_#000] self-start">
                           <FileText className="h-5 w-5" />
                         </div>
                       </div>
 
-                      {/* Display View/Download Counts as clean responsive indicators */}
+                      {/* Views & Downloads side-by-side indicators */}
                       <div className="grid grid-cols-2 gap-2 bg-[#FCFAF2] border-2 border-slate-900 p-2.5 rounded-xl text-center select-none font-mono">
-                        <div className="text-[10px] font-bold text-slate-600 flex items-center justify-center space-x-1.5">
+                        <div className="text-[10px] font-bold text-slate-650 flex items-center justify-center space-x-1.5">
                           <Eye className="h-3.5 w-3.5 text-amber-600 stroke-[2.2]" />
-                          <span>Views: <strong className="text-slate-900">{pdf.clickCount || 0}</strong></span>
+                          <span>Views: <strong className="text-slate-900 text-xs">{pdf.clickCount || 0}</strong></span>
                         </div>
-                        <div className="text-[10px] font-bold text-slate-600 flex items-center justify-center space-x-1.5 border-l border-slate-350">
-                          <Download className="h-3.5 w-3.5 text-emerald-600 stroke-[2.2]" />
-                          <span>Downloads: <strong className="text-[#10b981]">{pdf.downloadCount || 0}</strong></span>
+                        <div className="text-[10px] font-bold text-slate-650 flex items-center justify-center space-x-1.5 border-l-2 border-slate-300">
+                          <Download className="h-3.5 w-3.5 text-[#10b981] stroke-[2.2]" />
+                          <span>Downloads: <strong className="text-[#10b981] text-xs">{pdf.downloadCount || 0}</strong></span>
                         </div>
                       </div>
 
-                      {/* Explicit clean action buttons with proper spacing */}
-                      <div className="flex items-center justify-end space-x-2 pt-1">
+                      {/* Premium touch optimized action row */}
+                      <div className="grid grid-cols-3 gap-2 pt-1 border-t border-dashed border-slate-200">
                         <a 
                           href={`/pdf/${pdf.id}`}
-                          className="flex items-center justify-center space-x-1 px-3 py-2 border-2 border-slate-900 bg-white hover:bg-slate-50 rounded-xl text-[10px] font-sketch font-bold text-slate-800 shadow-[2px_2px_0px_#000]"
+                          className="flex items-center justify-center space-x-1 py-2.5 border-2 border-slate-900 bg-white hover:bg-slate-50 rounded-xl text-[10px] font-sketch font-bold text-slate-850 shadow-[2px_2px_0px_#000] active:translate-y-0.5 transition cursor-pointer"
                         >
                           <Link2 className="h-3.5 w-3.5 stroke-[2.2]" />
-                          <span>View Page</span>
+                          <span>View</span>
                         </a>
                         <button
                           onClick={() => startEditFlow(pdf)}
-                          className="flex items-center justify-center space-x-1 px-3 py-2 border-2 border-slate-900 bg-white hover:bg-slate-50 rounded-xl text-[10px] font-sketch font-bold text-slate-800 shadow-[2px_2px_0px_#000]"
+                          className="flex items-center justify-center space-x-1 py-2.5 border-2 border-slate-900 bg-white text-slate-950 hover:bg-slate-50 rounded-xl text-[10px] font-sketch font-bold shadow-[2px_2px_0px_#000] active:translate-y-0.5 transition cursor-pointer"
                         >
                           <Edit className="h-3.5 w-3.5 stroke-[2.2]" />
                           <span>Edit</span>
                         </button>
                         <button
                           onClick={() => triggerDelete(pdf.id)}
-                          className="flex items-center justify-center space-x-1 px-3 py-2 border-2 border-slate-900 bg-rose-50 hover:bg-rose-100 rounded-xl text-[10px] font-sketch font-extrabold text-rose-800 shadow-[2px_2px_0px_#000]"
+                          className="flex items-center justify-center space-x-1 py-2.5 border-2 border-slate-900 bg-rose-50 text-rose-800 hover:bg-rose-100 rounded-xl text-[10px] font-sketch font-bold shadow-[2px_2px_0px_#000] active:translate-y-0.5 transition cursor-pointer"
                         >
-                          <Trash2 className="h-3.5 w-3.5 text-rose-700 stroke-[2.2]" />
+                          <Trash2 className="h-3.5 w-3.5 stroke-[2.2]" />
                           <span>Delete</span>
                         </button>
                       </div>
@@ -1123,7 +1144,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white p-4 rounded-xl border-2 border-slate-900">
-              <label className="flex items-center space-x-3 cursor-pointer p-1 rounded hover:bg-slate-55 select-none text-slate-800">
+              <label className="flex items-center space-x-3 cursor-pointer p-1 rounded hover:bg-slate-100 select-none text-slate-800">
                 <input
                   type="checkbox"
                   checked={newAdminCanEdit}
@@ -1136,7 +1157,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
                 </div>
               </label>
 
-              <label className="flex items-center space-x-3 cursor-pointer p-1 rounded hover:bg-slate-55 select-none text-slate-800">
+              <label className="flex items-center space-x-3 cursor-pointer p-1 rounded hover:bg-slate-100 select-none text-slate-800">
                 <input
                   type="checkbox"
                   checked={newAdminCanDelete}
@@ -1149,7 +1170,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
                 </div>
               </label>
 
-              <label className="flex items-center space-x-3 cursor-pointer p-1 rounded hover:bg-slate-55 select-none text-slate-800">
+              <label className="flex items-center space-x-3 cursor-pointer p-1 rounded hover:bg-slate-100 select-none text-slate-800">
                 <input
                   type="checkbox"
                   checked={newAdminCanManageAdmins}

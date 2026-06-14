@@ -28,7 +28,7 @@ export default function App() {
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
 
   // Mobile navigation tab state
-  const [activeMobileTab, setActiveMobileTab] = useState<'home' | 'search' | 'bookmarks' | 'profile'>('home');
+  const [activeMobileTab, setActiveMobileTab] = useState<'home' | 'search' | 'bookmarks' | 'profile' | 'admin'>('home');
 
   // Bookmarks Local Storage Controller
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(() => {
@@ -1166,6 +1166,23 @@ export default function App() {
                   )}
                 </div>
               )}
+
+              {/* 5. ADMIN/DASHBOARD TAB FOR MOBILE */}
+              {activeMobileTab === 'admin' && isAdmin && (
+                <div className="animate-fade-in">
+                  <div className="mb-5 mt-2 select-none">
+                    <span className="text-[10px] uppercase font-sketch font-bold text-indigo-600 tracking-wider">
+                      {lang === 'hi' ? 'मुख्य प्रशासनिक नियंत्रण' : 'COMMAND CENTER'}
+                    </span>
+                    <h1 className="text-xl sm:text-2xl font-sketch font-black tracking-tight text-slate-900 leading-tight">
+                      {lang === 'hi' ? 'अकादमी डैशबोर्ड 📊' : 'Authorized Control Board 📊'}
+                    </h1>
+                  </div>
+                  <div className="animate-fade-in pt-1">
+                    <AdminPanel userEmail={user?.email || 'reviewer-admin@aistudio.com'} lang={lang} permissions={adminPermissions} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1301,6 +1318,24 @@ export default function App() {
               {lang === 'hi' ? 'प्रोफ़ाइल' : 'Profile'}
             </span>
           </button>
+
+          {/* Admin tab only showing if user is an admin */}
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                setCurrentRoute('home');
+                setActiveMobileTab('admin');
+                setSelectedPdfId(null);
+                hashNavigateTo('home');
+              }}
+              className="flex flex-col items-center justify-center transition cursor-pointer flex-1 animate-fade-in bg-indigo-50/50 rounded-xl py-1 px-1 flex-shrink-0"
+            >
+              <ShieldCheck className={`h-5.5 w-5.5 stroke-[2.5] ${currentRoute === 'home' && activeMobileTab === 'admin' ? 'text-indigo-600' : 'text-slate-400'}`} />
+              <span className={`text-[9.5px] font-sketch font-bold mt-1 ${currentRoute === 'home' && activeMobileTab === 'admin' ? 'text-indigo-700 font-extrabold' : 'text-slate-500'}`}>
+                {lang === 'hi' ? 'एडमिन' : 'Admin'}
+              </span>
+            </button>
+          )}
 
         </div>
 
