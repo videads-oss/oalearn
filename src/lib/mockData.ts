@@ -65,6 +65,7 @@ export const INITIAL_FALLBACK_PDFS: PdfDocument[] = [
     coverUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=600",
     clickCount: 310,
     downloadCount: 154,
+    membersOnly: true,
     createdBy: "google_admin",
     creatorEmail: "vaidwanprince@gmail.com",
     createdAt: new Date(Date.now() - 86400000 * 10).toISOString()

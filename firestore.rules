@@ -107,6 +107,7 @@ service cloud.firestore {
         (!('createdBy' in data) || (data.createdBy is string && data.createdBy.size() <= 128)) &&
         (!('creatorEmail' in data) || (data.creatorEmail is string && data.creatorEmail.size() <= 254)) &&
         (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 2000)) &&
+        (!('membersOnly' in data) || data.membersOnly is bool) &&
         // validation on timestamp
         (!('createdAt' in data) || (data.createdAt is string || data.createdAt is timestamp));
     }

@@ -50,6 +50,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
   const [progress, setProgress] = useState(0);
   const [timerCountdown, setTimerCountdown] = useState<number>(30);
   const [copied, setCopied] = useState(false);
+  const [showPremiumLoginModal, setShowPremiumLoginModal] = useState(false);
 
   // 30 seconds timer for secure redirection
   useEffect(() => {
@@ -99,16 +100,22 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
         
         const found = currentList.find(p => p.id === pdfId);
         if (found) {
-          // Increment locally
-          const updated = {
-            ...found,
-            clickCount: (found.clickCount || 0) + 1
-          };
-          const index = currentList.findIndex(p => p.id === pdfId);
-          if (index !== -1) {
-            currentList[index] = updated;
+          const sessionKey = `viewed_pdf_${pdfId}`;
+          const alreadyViewed = sessionStorage.getItem(sessionKey);
+          let updated = { ...found };
+          
+          if (!alreadyViewed) {
+            sessionStorage.setItem(sessionKey, 'true');
+            updated = {
+              ...found,
+              clickCount: (found.clickCount || 0) + 1
+            };
+            const index = currentList.findIndex(p => p.id === pdfId);
+            if (index !== -1) {
+              currentList[index] = updated;
+            }
+            localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
           }
-          localStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
           
           setPdf(updated);
         } else {
@@ -125,21 +132,29 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setPdf({
+          const basePdf = {
             id: docSnap.id,
             ...data
-          } as PdfDocument);
+          } as PdfDocument;
+          setPdf(basePdf);
 
-          // Increment view count initially upon landing on the intermediate URL page
-          try {
-            await updateDoc(docRef, {
-              clickCount: increment(1)
-            });
-            // Update local state to reflect newly refreshed click count
-            setPdf(prev => prev ? { ...prev, clickCount: (prev.clickCount || 0) + 1 } : null);
-          } catch (e) {
-            console.warn("View tracking failed due to rules or connectivity: ", e);
-            tryFallbackDetails();
+          // Increment view count initially upon landing on the intermediate URL page, avoiding session double counter
+          const sessionKey = `viewed_pdf_${pdfId}`;
+          const alreadyViewed = sessionStorage.getItem(sessionKey);
+
+          if (!alreadyViewed) {
+            try {
+              sessionStorage.setItem(sessionKey, 'true');
+              await updateDoc(docRef, {
+                clickCount: increment(1)
+              });
+              // Update local state to reflect newly refreshed click count
+              setPdf(prev => prev ? { ...prev, clickCount: (prev.clickCount || 0) + 1 } : null);
+            } catch (e) {
+              console.warn("View tracking failed due to rules or connectivity: ", e);
+              sessionStorage.removeItem(sessionKey);
+              tryFallbackDetails();
+            }
           }
         } else {
           tryFallbackDetails();
@@ -231,7 +246,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
   const triggerRedirect = async (type: 'view' | 'download') => {
     if (!pdf) return;
     if (pdf.membersOnly && !user) {
-      onSignIn();
+      setShowPremiumLoginModal(true);
       return;
     }
     setRedirectType(type);
@@ -312,8 +327,15 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
     setRedirectType(null); // Reset/close redirect flow
   };
 
+  const handleModalSignIn = async () => {
+    setShowPremiumLoginModal(false);
+    if (onSignIn) {
+      await onSignIn();
+    }
+  };
+
   const handleShare = () => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}#/pdf/${pdfId}`;
+    const shareUrl = `${window.location.origin}/pdf/${pdfId}`;
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -321,7 +343,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
 
   const handleReportPdf = () => {
     if (!pdf) return;
-    const pageUrl = `${window.location.origin}${window.location.pathname}#/pdf/${pdf.id}`;
+    const pageUrl = `${window.location.origin}/pdf/${pdf.id}`;
     const subject = encodeURIComponent(`[Officers Academy REPORT] - Issue with ${pdf.title}`);
     const emailBody = encodeURIComponent(
       `Hello Officers Academy Team,\n\n` +
@@ -673,6 +695,59 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
         </div>
 
       </div>
+
+      {/* GOOGLE AUTHENTICATION PREMIUM ACCESS MODAL */}
+      {showPremiumLoginModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border-4 border-slate-900 rounded-2xl w-full max-w-md p-6 shadow-[8px_8px_0px_#000] relative animate-fade-in select-none">
+            {/* Close button */}
+            <button 
+              onClick={() => setShowPremiumLoginModal(false)}
+              className="absolute top-4 right-4 bg-rose-100 hover:bg-rose-200 border-2 border-slate-900 rounded-xl p-1 px-2.5 text-xs font-sketch font-bold text-slate-850 transition shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer"
+            >
+              ✕ {lang === 'hi' ? 'बंद करें' : 'Close'}
+            </button>
+
+            <div className="flex flex-col items-center text-center mt-3">
+              <div className="bg-[#FFE600] p-4 rounded-full border-2 border-slate-900 shadow-[3px_3px_0px_#000] mb-4 text-slate-950 animate-bounce">
+                <Sparkles className="h-8 w-8 stroke-[2.5]" />
+              </div>
+              
+              <h3 className="text-xl font-sketch font-black text-slate-900 uppercase tracking-tight mb-2">
+                {lang === 'hi' ? 'प्रीमियम सामग्री अनलॉक करें 🔒' : 'Unlock Premium Study Notes 🔒'}
+              </h3>
+              
+              <p className="text-xs sm:text-sm text-slate-650 leading-relaxed font-sans font-semibold mb-6 max-w-sm">
+                {lang === 'hi' 
+                  ? 'अकाडमी के इस प्रीमियम लेख/संचिका को पढ़ने या फाइल डाउनलोड करने के लिए त्वरित गूगल लॉगिन आवश्यक है।' 
+                  : 'This premium resource is authorized for registered academy aspirants. Please sign-in with Google to clear instant access.'}
+              </p>
+
+              <div className="w-full space-y-3">
+                <button
+                  onClick={handleModalSignIn}
+                  className="w-full flex items-center justify-center space-x-3 bg-[#FFE600] active:translate-y-0.5 text-slate-950 border-2 border-slate-900 rounded-xl font-sketch font-extrabold py-3.5 px-4 text-sm tracking-wide transition cursor-pointer shadow-[3.5px_3.5px_0px_#000] hover:bg-[#FFF275]"
+                >
+                  <img 
+                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                    alt="Google Logo" 
+                    className="h-5 w-5"
+                  />
+                  <span>{lang === 'hi' ? 'गूगल से लॉगिन करें' : 'Sign In with Google'}</span>
+                </button>
+
+                <button
+                  onClick={() => setShowPremiumLoginModal(false)}
+                  className="w-full border-2 border-slate-900 bg-white hover:bg-slate-50 text-slate-800 font-sketch font-bold py-2.5 px-4 rounded-xl text-xs transition shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer"
+                >
+                  {lang === 'hi' ? 'बाद में करें' : 'Maybe Later'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

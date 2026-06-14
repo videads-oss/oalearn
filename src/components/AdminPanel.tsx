@@ -869,7 +869,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
                             <div className="flex items-center justify-end space-x-2">
                               {/* Open Landing Page preview */}
                               <a 
-                                href={`#/pdf/${pdf.id}`}
+                                href={`/pdf/${pdf.id}`}
                                 className="p-2 border-2 border-slate-900 bg-white hover:bg-slate-50 rounded-xl text-slate-800 hover:text-indigo-600 shadow-[1.5px_1.5px_0px_#000] active:translate-y-0.5 transition cursor-pointer"
                                 title="View landing page"
                               >
@@ -933,7 +933,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
                       {/* Explicit clean action buttons with proper spacing */}
                       <div className="flex items-center justify-end space-x-2 pt-1">
                         <a 
-                          href={`#/pdf/${pdf.id}`}
+                          href={`/pdf/${pdf.id}`}
                           className="flex items-center justify-center space-x-1 px-3 py-2 border-2 border-slate-900 bg-white hover:bg-slate-50 rounded-xl text-[10px] font-sketch font-bold text-slate-800 shadow-[2px_2px_0px_#000]"
                         >
                           <Link2 className="h-3.5 w-3.5 stroke-[2.2]" />

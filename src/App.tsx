@@ -107,21 +107,21 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
-  // Parse location hash for routing
+  // Parse HTML5 history path for routing and Google crawling index optimization
   useEffect(() => {
-    const handleHashRouter = () => {
-      const hash = window.location.hash;
-      if (hash.startsWith('#/pdf/')) {
-        const id = hash.replace('#/pdf/', '');
+    const handlePathRouter = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/pdf/')) {
+        const id = path.replace('/pdf/', '');
         if (id) {
           setSelectedPdfId(id);
           setCurrentRoute('details');
         } else {
           setCurrentRoute('home');
         }
-      } else if (hash === '#/admin') {
+      } else if (path === '/admin') {
         setCurrentRoute('admin');
-      } else if (hash === '#/disclaimer') {
+      } else if (path === '/disclaimer') {
         setCurrentRoute('disclaimer');
       } else {
         setCurrentRoute('home');
@@ -129,10 +129,69 @@ export default function App() {
       }
     };
 
-    handleHashRouter();
+    handlePathRouter();
 
-    window.addEventListener('hashchange', handleHashRouter);
-    return () => window.removeEventListener('hashchange', handleHashRouter);
+    // Listen to history popstate (e.g. browser back/forward buttons)
+    window.addEventListener('popstate', handlePathRouter);
+    // Listen to client-side navigation custom dispatches
+    window.addEventListener('app-navigate', handlePathRouter);
+
+    return () => {
+      window.removeEventListener('popstate', handlePathRouter);
+      window.removeEventListener('app-navigate', handlePathRouter);
+    };
+  }, []);
+
+  // Global anchor link intercept to convert click pathways to SPA pushState seamlessly
+  useEffect(() => {
+    const handleAnchorClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a');
+      if (anchor) {
+        const hrefAttr = anchor.getAttribute('href');
+        if (hrefAttr) {
+          if (hrefAttr.startsWith('#/')) {
+            e.preventDefault();
+            const cleanPath = hrefAttr.substring(1); // strip first hash char
+            window.history.pushState(null, '', cleanPath);
+            window.dispatchEvent(new Event('app-navigate'));
+            return;
+          }
+          if (hrefAttr === '#') {
+            return;
+          }
+        }
+
+        if (anchor.href) {
+          try {
+            const url = new URL(anchor.href, window.location.href);
+            if (url.origin === window.location.origin) {
+              e.preventDefault();
+              let route = 'home';
+              let detailsId: string | undefined;
+              
+              if (url.pathname.startsWith('/pdf/')) {
+                route = 'details';
+                detailsId = url.pathname.replace('/pdf/', '');
+              } else if (url.pathname === '/admin') {
+                route = 'admin';
+              } else if (url.pathname === '/disclaimer') {
+                route = 'disclaimer';
+              }
+              
+              hashNavigateTo(route, detailsId);
+            }
+          } catch (e) {
+            console.error("SEO dynamic link parse issue:", e);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('click', handleAnchorClick);
+    return () => {
+      document.removeEventListener('click', handleAnchorClick);
+    };
   }, []);
 
   // Sync auth state
@@ -287,17 +346,21 @@ export default function App() {
     fetchCategories();
   }, [currentRoute]);
 
-  // Navigate helper modifying hash location
+  // Navigate helper modifying HTML5 pathname location
   const hashNavigateTo = (route: string, detailsId?: string) => {
+    let targetPath = '/';
     if (route === 'home') {
-      window.location.hash = '/';
+      targetPath = '/';
     } else if (route === 'admin') {
-      window.location.hash = '/admin';
+      targetPath = '/admin';
     } else if (route === 'disclaimer') {
-      window.location.hash = '/disclaimer';
+      targetPath = '/disclaimer';
     } else if (route === 'details' && detailsId) {
-      window.location.hash = `/pdf/${detailsId}`;
+      targetPath = `/pdf/${detailsId}`;
     }
+
+    window.history.pushState(null, '', targetPath);
+    window.dispatchEvent(new Event('app-navigate'));
   };
 
   // Google Authentication Helper
@@ -305,8 +368,11 @@ export default function App() {
     setAuthError(null);
     try {
       await loginWithGoogle();
-      setCurrentRoute('home');
-      window.location.hash = '/';
+      if (currentRoute !== 'details') {
+        setCurrentRoute('home');
+        window.history.pushState(null, '', '/');
+        window.dispatchEvent(new Event('app-navigate'));
+      }
     } catch (e: any) {
       console.error("Google Authenticator Connection Error: ", e);
       let errMsg = e?.message || String(e);
@@ -327,7 +393,8 @@ export default function App() {
       await logoutUser();
       setUser(null);
       setIsAdmin(false);
-      window.location.hash = '/';
+      window.history.pushState(null, '', '/');
+      window.dispatchEvent(new Event('app-navigate'));
     } catch (e) {
       console.error(e);
     }
@@ -656,13 +723,6 @@ export default function App() {
                         className="h-4.5 w-4.5"
                       />
                       <span>{lang === 'hi' ? 'गूगल से लॉगिन करें' : 'Sign In with Google'}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowTroubleshoot(true)}
-                      className="mt-4 text-xs text-indigo-600 hover:text-indigo-800 underline block mx-auto font-sans font-bold cursor-pointer"
-                    >
-                      {lang === 'hi' ? 'oalearn.com पर गूगल लॉगिन काम नहीं कर रहा?' : 'Google Login not working on oalearn.com? Click here'}
                     </button>
                   </div>
                 </div>
@@ -1078,13 +1138,6 @@ export default function App() {
                           <LogIn className="h-4.5 w-4.5 stroke-[2.5]" />
                           <span>Google Sign In</span>
                         </button>
-
-                        <button
-                          onClick={() => setShowTroubleshoot(true)}
-                          className="mt-3 text-[11px] text-slate-650 underline font-semibold font-sans block mx-auto cursor-pointer"
-                        >
-                          {lang === 'hi' ? 'oalearn.com पर लॉगिन गाइड' : 'Google Login not working on oalearn.com?'}
-                        </button>
                       </div>
                     </div>
                   )}
@@ -1135,13 +1188,6 @@ export default function App() {
                         className="h-4.5 w-4.5"
                       />
                       <span>{lang === 'hi' ? 'गूगल से लॉगिन करें' : 'Sign In with Google'}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowTroubleshoot(true)}
-                      className="mt-3.5 text-xs text-indigo-600 font-sans font-bold hover:text-indigo-800 underline block mx-auto cursor-pointer"
-                    >
-                      {lang === 'hi' ? 'oalearn.com पर गूगल लॉगिन समस्या?' : 'Google Login not working on oalearn.com?'}
                     </button>
                   </div>
                 </div>
