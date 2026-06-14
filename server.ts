@@ -1,9 +1,14 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
+
+// Define ESM-compatible __filename and __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
@@ -85,6 +90,32 @@ async function startServer() {
     return result;
   }
 
+  // Determine robustly if we are running in a compiled production container state
+  const isProduction = process.env.NODE_ENV === "production" || __filename.includes('dist');
+  console.log(`[SEO Engine] Detected Environment: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+
+  // Helper to dynamically resolve index.html location depending on the runtime context
+  function getHtmlFilePath(): string {
+    const possiblePaths = isProduction 
+      ? [
+          path.join(__dirname, 'index.html'), // Proximity-first inside dist/ folder
+          path.join(process.cwd(), 'dist', 'index.html'), // Absolute working directory path
+        ]
+      : [
+          path.join(process.cwd(), 'index.html'), // Dev environment root-level
+          path.join(__dirname, 'index.html'),
+          path.join(__dirname, '..', 'index.html'),
+        ];
+
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        return p;
+      }
+    }
+    // Safe ultimate fallback paths
+    return isProduction ? path.join(process.cwd(), 'dist', 'index.html') : path.join(process.cwd(), 'index.html');
+  }
+
   // Rewrite/Redirect relative asset requests made from subpages like /pdf/:id
   app.use((req, res, next) => {
     // If the browser requests a static file under /pdf/ (e.g., /pdf/assets/logo.png or /pdf/favicon.ico)
@@ -102,11 +133,14 @@ async function startServer() {
   });
 
   // Intercept PDF page requests for dynamic server-side SEO metadata injection
+  // Supporting optional trailing slashes at the Express router match level
   app.get(["/pdf/:id", "/pdf/:id/"], async (req, res, next) => {
     let pdfId = req.params.id;
 
+    console.log(`[SEO Engine] Intercepted PDF subpage request: ${req.originalUrl}, PDF ID parsed: ${pdfId}`);
+
     // Skip assets or static files that might match this route
-    if (!pdfId || pdfId.includes('.')) {
+    if (!pdfId || pdfId.includes('.') || pdfId === 'assets' || pdfId === 'src') {
       return next();
     }
 
@@ -117,34 +151,32 @@ async function startServer() {
 
     try {
       const pdfData = await getPdfMetadata(pdfId);
-      
-      let htmlFileContent = '';
-      if (process.env.NODE_ENV !== "production") {
-        htmlFileContent = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
+      const htmlPath = getHtmlFilePath();
+      let htmlFileContent = fs.readFileSync(htmlPath, 'utf-8');
+
+      if (!isProduction) {
         const vite = await getViteInstance();
         // Transform index.html with Vite's injection helper in dev mode
         htmlFileContent = await vite.transformIndexHtml(req.originalUrl, htmlFileContent);
-      } else {
-        htmlFileContent = fs.readFileSync(path.join(process.cwd(), 'dist', 'index.html'), 'utf-8');
       }
 
       const finalizedHtml = injectSeoMetadata(htmlFileContent, pdfData, pdfId);
       res.status(200).set({ "Content-Type": "text/html" }).send(finalizedHtml);
     } catch (err) {
-      console.error("Express routing error during PDF page request - falling back to normal SPA index.html:", err);
+      console.error("[SEO Engine] Error during PDF page request - falling back to raw SPA index.html:", err);
       // Fail-safe: load plain index.html layout so the frontend React SPA can boot up and render without crashing
       try {
-        let htmlFileContent = '';
-        if (process.env.NODE_ENV !== "production") {
-          htmlFileContent = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
+        const htmlPath = getHtmlFilePath();
+        let htmlFileContent = fs.readFileSync(htmlPath, 'utf-8');
+        
+        if (!isProduction) {
           const vite = await getViteInstance();
           htmlFileContent = await vite.transformIndexHtml(req.originalUrl, htmlFileContent);
-        } else {
-          htmlFileContent = fs.readFileSync(path.join(process.cwd(), 'dist', 'index.html'), 'utf-8');
         }
         res.status(200).set({ "Content-Type": "text/html" }).send(htmlFileContent);
       } catch (innerErr) {
-        // Ultimate backup response
+        console.error("[SEO Engine] Severe fallback error, sending default shell:", innerErr);
+        // Absolute fallback response
         res.status(500).send("Internal Server Error");
       }
     }
@@ -163,7 +195,7 @@ async function startServer() {
   }
 
   // Vite middlewares/SPA static routing setup
-  if (process.env.NODE_ENV !== "production") {
+  if (!isProduction) {
     const vite = await getViteInstance();
     app.use(vite.middlewares);
   } else {
@@ -173,7 +205,8 @@ async function startServer() {
     
     // SPA catch-all for any other pathways
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const htmlPath = getHtmlFilePath();
+      res.sendFile(htmlPath);
     });
   }
 
