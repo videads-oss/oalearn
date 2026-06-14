@@ -48,3 +48,17 @@ export interface Category {
   addedBy?: string;
   addedAt?: string;
 }
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  category: string;
+  excerpt: string;
+  content: string; // markdown supported
+  coverUrl?: string;
+  author: string;
+  authorEmail: string;
+  createdAt: any;
+  readTime: string;
+}
+

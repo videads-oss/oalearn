@@ -7,9 +7,8 @@ import {
 } from 'lucide-react';
 import { collection, doc, getDocs, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { PdfDocument, AdminPermissions, AdminUser, Category } from '../types';
-import { translations, Language } from '../lib/translations';
-import { INITIAL_FALLBACK_PDFS } from '../lib/mockData';
+import { PdfDocument, AdminPermissions, AdminUser, Category, BlogPost } from '../types';
+import { INITIAL_FALLBACK_PDFS, INITIAL_FALLBACK_BLOGS } from '../lib/mockData';
 import { safeLocalStorage } from '../lib/safeStorage';
 
 interface AdminPanelProps {
@@ -22,8 +21,24 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
   const t = translations[lang];
 
   // Mode configuration
-  const [activeTab, setActiveTab] = useState<'manage' | 'editor' | 'admins' | 'categories'>('manage');
+  const [activeTab, setActiveTab] = useState<'manage' | 'editor' | 'admins' | 'categories' | 'blogs'>('manage');
   const [editingPdf, setEditingPdf] = useState<PdfDocument | null>(null);
+
+  // Separate Blogs Database Management states
+  const [adminBlogs, setAdminBlogs] = useState<BlogPost[]>([]);
+  const [adminBlogsLoading, setAdminBlogsLoading] = useState(false);
+  const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
+  const [isBlogFormOpen, setIsBlogFormOpen] = useState(false);
+
+  // Blog Form parameters
+  const [blogId, setBlogId] = useState('');
+  const [blogTitle, setBlogTitle] = useState('');
+  const [blogCategory, setBlogCategory] = useState('Preparation Tactics');
+  const [blogExcerpt, setBlogExcerpt] = useState('');
+  const [blogContent, setBlogContent] = useState('');
+  const [blogCoverUrl, setBlogCoverUrl] = useState('');
+  const [blogAuthor, setBlogAuthor] = useState('');
+  const [blogReadTime, setBlogReadTime] = useState('5 Min Read');
 
   // Administrative team management states
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -389,9 +404,147 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
     }
   };
 
+  // Blog Management Firestore/Fallback functions
+  const fetchAdminBlogsList = async () => {
+    setAdminBlogsLoading(true);
+    const loadFallbackBlogs = () => {
+      const cached = safeLocalStorage.getItem('officers_academy_fallback_blogs');
+      if (cached) {
+        try {
+          setAdminBlogs(JSON.parse(cached));
+        } catch {
+          setAdminBlogs(INITIAL_FALLBACK_BLOGS);
+        }
+      } else {
+        setAdminBlogs(INITIAL_FALLBACK_BLOGS);
+      }
+    };
+
+    try {
+      const q = query(collection(db, 'blogs'), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const docsList: BlogPost[] = [];
+      querySnapshot.forEach((doc) => {
+        docsList.push({ id: doc.id, ...doc.data() } as BlogPost);
+      });
+      if (docsList.length > 0) {
+        setAdminBlogs(docsList);
+        safeLocalStorage.setItem('officers_academy_fallback_blogs', JSON.stringify(docsList));
+      } else {
+        loadFallbackBlogs();
+      }
+    } catch (err) {
+      console.warn("Failed loading admin blogs, using fallback", err);
+      loadFallbackBlogs();
+    } finally {
+      setAdminBlogsLoading(false);
+    }
+  };
+
+  const resetBlogForm = () => {
+    setEditingBlog(null);
+    setBlogId('');
+    setBlogTitle('');
+    setBlogCategory('Preparation Tactics');
+    setBlogExcerpt('');
+    setBlogContent('');
+    setBlogCoverUrl('');
+    setBlogAuthor('');
+    setBlogReadTime('5 Min Read');
+  };
+
+  const handleSaveBlog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!permissions.canEdit) {
+      setErrorMessage(lang === 'hi' ? "आपके पास संपादन की अनुमति नहीं है।" : "You do not have required edit permissions.");
+      return;
+    }
+
+    const cleanId = blogId.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const cleanTitle = blogTitle.trim();
+    if (!cleanId || !cleanTitle) {
+      setErrorMessage(lang === 'hi' ? "कृपया एक मान्य आईडी और शीर्षक दर्ज करें।" : "Please specify a valid slug ID and title.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const payload: BlogPost = {
+      id: cleanId,
+      title: cleanTitle,
+      category: blogCategory,
+      excerpt: blogExcerpt.trim(),
+      content: blogContent.trim() || 'This article contains exclusive strategies.',
+      coverUrl: blogCoverUrl.trim() || 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&q=80&w=600',
+      author: blogAuthor.trim() || 'Officers Academy Advisor',
+      authorEmail: userEmail,
+      createdAt: editingBlog ? editingBlog.createdAt : new Date().toISOString(),
+      readTime: blogReadTime.trim() || '5 Min Read'
+    };
+
+    try {
+      await setDoc(doc(db, 'blogs', cleanId), payload);
+      setSuccessMessage(lang === 'hi' ? "ब्लॉग पोस्ट सफलतापूर्वक सहेजा गया!" : "Blog post synced successfully with firebase indices!");
+      resetBlogForm();
+      setIsBlogFormOpen(false);
+      fetchAdminBlogsList();
+    } catch (err) {
+      console.error("Save Blog Post Error: ", err);
+      // fallback save in case firebase has locked rules or offline
+      const nextBlogs = editingBlog 
+        ? adminBlogs.map(b => b.id === cleanId ? payload : b)
+        : [payload, ...adminBlogs];
+      setAdminBlogs(nextBlogs);
+      safeLocalStorage.setItem('officers_academy_fallback_blogs', JSON.stringify(nextBlogs));
+      setSuccessMessage(lang === 'hi' ? "ब्लॉग पोस्ट सफलतापूर्वक सहेजा गया (स्थानीय संग्रहण)!" : "Blog post saved (local fallback context)!");
+      resetBlogForm();
+      setIsBlogFormOpen(false);
+    }
+  };
+
+  const handleDeleteBlog = async (idToDelete: string) => {
+    if (!permissions.canDelete) {
+      setErrorMessage(lang === 'hi' ? "आपके पास हटाने की अनुमति नहीं है।" : "You do not have delete authority.");
+      return;
+    }
+    if (!window.confirm(lang === 'hi' ? `क्या आप सचमुच इस ब्लॉग पोस्ट को हटाना चाहते हैं?` : `Are you sure you want to permanently delete this blog post?`)) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await deleteDoc(doc(db, 'blogs', idToDelete));
+      setSuccessMessage(lang === 'hi' ? "ब्लॉग पोस्ट हटाया गया।" : "Blog post discarded successfully from Firestore.");
+      fetchAdminBlogsList();
+    } catch (err) {
+      console.error("Delete blog error: ", err);
+      const nextBlogs = adminBlogs.filter(b => b.id !== idToDelete);
+      setAdminBlogs(nextBlogs);
+      safeLocalStorage.setItem('officers_academy_fallback_blogs', JSON.stringify(nextBlogs));
+      setSuccessMessage(lang === 'hi' ? "ब्लॉग पोस्ट हटाया गया (स्थानीय संग्रहण)।" : "Blog post dismissed from local state.");
+    }
+  };
+
+  const handleEditBlogClick = (b: BlogPost) => {
+    setEditingBlog(b);
+    setBlogId(b.id);
+    setBlogTitle(b.title);
+    setBlogCategory(b.category);
+    setBlogExcerpt(b.excerpt);
+    setBlogContent(b.content);
+    setBlogCoverUrl(b.coverUrl || '');
+    setBlogAuthor(b.author);
+    setBlogReadTime(b.readTime);
+    setIsBlogFormOpen(true);
+  };
+
   useEffect(() => {
     fetchAllDocs();
     fetchCategoriesList();
+    fetchAdminBlogsList();
     if (permissions.canManageAdmins) {
       fetchAdminUsers();
     }
@@ -714,6 +867,22 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
           >
             <FolderPlus className="h-3.5 w-3.5" />
             <span>{lang === 'hi' ? 'श्रेणियां' : 'Categories'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              resetForm();
+              resetBlogForm();
+              setActiveTab('blogs');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-sketch font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 shrink-0 cursor-pointer ${
+              activeTab === 'blogs'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            <span>{lang === 'hi' ? 'ब्लॉग सूची' : 'Manage Blogs'}</span>
           </button>
           
           {permissions.canManageAdmins && (
@@ -1271,6 +1440,217 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeTab === 'blogs' ? (
+        <div className="space-y-6 max-w-4xl mx-auto mb-12 animate-fade-in px-4 sm:px-0">
+          {/* Quick Stats Banner */}
+          <div className="bg-amber-55/10 border-2 border-slate-900 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-[3px_3px_0px_#000]">
+            <div>
+              <h3 className="font-sketch font-bold text-slate-950 text-xs sm:text-sm uppercase tracking-wide">📰 BLOGS DATABASE DIRECTORY</h3>
+              <p className="text-[10px] text-slate-500 font-bold mt-1 leading-normal">Manage your articles, schedules, strategies and notifications independently in separate Firestore documents.</p>
+            </div>
+            {!isBlogFormOpen && (
+              <button
+                onClick={() => {
+                  resetBlogForm();
+                  setIsBlogFormOpen(true);
+                }}
+                className="bg-[#A3E635] hover:bg-[#bbf054] text-slate-950 border-2 border-slate-900 font-sketch font-extrabold rounded-xl px-4 py-2 text-xs shadow-[2px_2px_0px_#000] cursor-pointer"
+              >
+                ➕ Add New Post
+              </button>
+            )}
+          </div>
+
+          {/* Create / Edit Blog Post Form inline */}
+          {isBlogFormOpen && (
+            <div className="bg-white border-2 border-slate-900 p-5 rounded-2xl shadow-[4px_4px_0px_#000] animate-fade-in">
+              <h4 className="font-sketch font-black text-slate-900 text-xs uppercase mb-4 pb-2 border-b-2 border-dashed border-slate-200">
+                {editingBlog ? '✍️ EDIT BLOG POST' : '➕ CREATE NEW BLOG POST'}
+              </h4>
+              <form onSubmit={handleSaveBlog} className="space-y-4 text-xs font-semibold">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-slate-600 uppercase mb-1 font-bold">Unique Slug ID (e.g. upsc-notes-2026)</label>
+                    <input
+                      type="text"
+                      required
+                      disabled={!!editingBlog}
+                      placeholder="e.g. upsc-tactics-2026"
+                      value={blogId}
+                      onChange={(e) => setBlogId(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-900 px-3 py-2.5 rounded-xl outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-600 uppercase mb-1 font-bold">Article Title</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Ultimate Polity Checklist"
+                      value={blogTitle}
+                      onChange={(e) => setBlogTitle(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-900 px-3 py-2.5 rounded-xl outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-slate-600 uppercase mb-1 font-bold">Category</label>
+                    <select
+                      value={blogCategory}
+                      onChange={(e) => setBlogCategory(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-900 px-3 py-2.5 rounded-xl outline-none"
+                    >
+                      <option value="Preparation Tactics">Preparation Tactics</option>
+                      <option value="Current Affairs">Current Affairs</option>
+                      <option value="Syllabus Decoded">Syllabus Decoded</option>
+                      <option value="Notifications & Alerts">Notifications & Alerts</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-600 uppercase mb-1 font-bold">Author Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Pratap Singh (IAS)"
+                      value={blogAuthor}
+                      onChange={(e) => setBlogAuthor(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-900 px-3 py-2.5 rounded-xl outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-600 uppercase mb-1 font-bold">Estimated Reading Duration</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 5 Min Read"
+                      value={blogReadTime}
+                      onChange={(e) => setBlogReadTime(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-slate-900 px-3 py-2.5 rounded-xl outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-600 uppercase mb-1 font-bold">Cover Image URL (Optional)</label>
+                  <input
+                    type="url"
+                    placeholder="e.g. https://images.unsplash.com/photo-..."
+                    value={blogCoverUrl}
+                    onChange={(e) => setBlogCoverUrl(e.target.value)}
+                    className="w-full bg-slate-50 border-2 border-slate-900 px-3 py-2.5 rounded-xl outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-600 uppercase mb-1 font-bold">Brief Excerpt/Snippet</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={180}
+                    placeholder="Short description shown in article catalogs..."
+                    value={blogExcerpt}
+                    onChange={(e) => setBlogExcerpt(e.target.value)}
+                    className="w-full bg-slate-50 border-2 border-slate-900 px-3 py-2.5 rounded-xl outline-none animate-once"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-600 uppercase mb-1 font-bold">Article Content (Markdown supported)</label>
+                  <textarea
+                    rows={8}
+                    required
+                    placeholder="Write body paragraphs. Use '### Subheading' and '- List item' to format beautifully."
+                    value={blogContent}
+                    onChange={(e) => setBlogContent(e.target.value)}
+                    className="w-full bg-slate-50 border-2 border-slate-900 px-3 py-2 rounded-xl outline-none leading-relaxed font-sans font-medium"
+                  ></textarea>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2.5 pt-3 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetBlogForm();
+                      setIsBlogFormOpen(false);
+                    }}
+                    className="bg-white border-2 border-slate-900 px-4 py-2 rounded-xl text-xs font-sketch font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-[#A3E635] hover:bg-[#bbf054] border-2 border-slate-900 text-slate-950 font-sketch font-bold px-5 py-2 rounded-xl text-xs cursor-pointer"
+                  >
+                    Save Article
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Blogs Directory List Table */}
+          <div className="bg-white border-2 border-slate-900 rounded-3xl overflow-hidden shadow-[3px_3px_0px_#000]">
+            <div className="p-4 bg-slate-50 border-b border-slate-205">
+              <h4 className="font-sketch font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center space-x-2">
+                <span>📖 REGISTERED BLOG LOGS</span>
+              </h4>
+            </div>
+
+            {adminBlogsLoading ? (
+              <div className="text-center p-10">
+                <RefreshCw className="h-5 w-5 animate-spin mx-auto text-slate-500 mb-2" />
+                <span className="text-[10px] text-slate-500 font-bold">Querying blogs catalog...</span>
+              </div>
+            ) : adminBlogs.length === 0 ? (
+              <div className="text-center p-8 text-slate-500">
+                <p className="text-xs font-bold">No articles are currently added to this separate collection.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs font-semibold">
+                  <thead>
+                    <tr className="bg-slate-100 border-b-2 border-slate-900 text-[9px] uppercase tracking-wider text-slate-550 font-sans">
+                      <th className="p-3">Title / Slug URL</th>
+                      <th className="p-3">Category</th>
+                      <th className="p-3">Author</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {adminBlogs.map((b) => (
+                      <tr key={b.id} className="hover:bg-slate-50/55 transition">
+                        <td className="p-3 max-w-[280px]">
+                          <span className="block font-bold text-slate-900 truncate">{b.title}</span>
+                          <span className="block text-[9px] text-slate-400 font-mono mt-0.5 truncate">ID slug extension: #{b.id}</span>
+                        </td>
+                        <td className="p-3">
+                          <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded border border-amber-200 font-bold uppercase">{b.category}</span>
+                        </td>
+                        <td className="p-3 text-slate-600 font-mono text-[10px]">{b.author}</td>
+                        <td className="p-3 text-right space-x-2">
+                          <button
+                            onClick={() => handleEditBlogClick(b)}
+                            className="bg-sky-50 text-sky-700 border border-sky-300 text-[10px] font-bold px-2.5 py-1 rounded hover:bg-sky-100 cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBlog(b.id)}
+                            className="bg-rose-50 text-rose-700 border border-rose-300 text-[10px] font-bold px-2.5 py-1 rounded hover:bg-rose-100 cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

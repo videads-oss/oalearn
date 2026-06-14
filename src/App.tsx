@@ -4,9 +4,9 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth, loginWithGoogle, logoutUser, handleFirestoreError, OperationType } from './lib/firebase';
-import { PdfDocument, AdminPermissions, Category } from './types';
+import { PdfDocument, AdminPermissions, Category, BlogPost } from './types';
 import { translations, Language } from './lib/translations';
-import { INITIAL_FALLBACK_PDFS } from './lib/mockData';
+import { INITIAL_FALLBACK_PDFS, INITIAL_FALLBACK_BLOGS } from './lib/mockData';
 import { safeLocalStorage } from './lib/safeStorage';
 
 // Components
@@ -14,6 +14,7 @@ import PdfCard from './components/PdfCard';
 import PdfDetails from './components/PdfDetails';
 import AdminPanel from './components/AdminPanel';
 import Disclaimer from './components/Disclaimer';
+import { BlogPage, BlogDetailsPage } from './components/BlogViews';
 
 // Icons
 import { 
@@ -25,8 +26,9 @@ import {
 
 export default function App() {
   // Navigation & Routing State
-  const [currentRoute, setCurrentRoute] = useState<'home' | 'admin' | 'details' | 'disclaimer'>('home');
+  const [currentRoute, setCurrentRoute] = useState<'home' | 'admin' | 'details' | 'disclaimer' | 'blog' | 'blog-details'>('home');
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
+  const [selectedBlogId, setSelectedBlogId] = useState<string | null>(null);
 
   // Bookmarks Local Storage Controller
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(() => {
@@ -133,6 +135,23 @@ export default function App() {
   });
   const [dbLoading, setDbLoading] = useState(false);
 
+  // Brand New Separate Blog Database list state loaded securely from collection('blogs') with robust copy
+  const [blogs, setBlogs] = useState<BlogPost[]>(() => {
+    try {
+      const cached = safeLocalStorage.getItem('officers_academy_fallback_blogs');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_FALLBACK_BLOGS;
+  });
+  const [blogsLoading, setBlogsLoading] = useState(false);
+
   // Dynamic categories list from Firestore with sensible instant defaults
   const [categoriesList, setCategoriesList] = useState<string[]>(() => {
     return [
@@ -149,47 +168,106 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
-  // Parse HTML5 history path for routing and Google crawling index optimization
+  // Parse HTML5 Hash/Pathname changes for browser compatible offline-ready routing & rich SEO support
   useEffect(() => {
-    const handlePathRouter = () => {
-      const path = window.location.pathname;
-      let relativePath = path;
-
-      if (relativePath.startsWith('/pdf/')) {
-        let id = relativePath.replace('/pdf/', '');
-        if (id.endsWith('/')) {
-          id = id.slice(0, -1);
-        }
+    const handleHashRouter = () => {
+      const hash = window.location.hash || '';
+      const pathname = window.location.pathname || '/';
+      
+      // 1. Process hash-based routing targets first
+      if (hash.startsWith('#/pdf/')) {
+        let id = hash.replace('#/pdf/', '');
+        if (id.endsWith('/')) id = id.slice(0, -1);
         if (id) {
           setSelectedPdfId(id);
+          setSelectedBlogId(null);
           setCurrentRoute('details');
-        } else {
-          setCurrentRoute('home');
+          return;
         }
-      } else if (relativePath === '/admin') {
-        setCurrentRoute('admin');
-      } else if (relativePath === '/disclaimer') {
-        setCurrentRoute('disclaimer');
-      } else {
-        setCurrentRoute('home');
+      } else if (hash.startsWith('#/blog/')) {
+        let id = hash.replace('#/blog/', '');
+        if (id.endsWith('/')) id = id.slice(0, -1);
+        if (id) {
+          setSelectedBlogId(id);
+          setSelectedPdfId(null);
+          setCurrentRoute('blog-details');
+          return;
+        }
+      } else if (hash === '#/blog') {
+        setCurrentRoute('blog');
         setSelectedPdfId(null);
+        setSelectedBlogId(null);
+        return;
+      } else if (hash === '#/admin') {
+        setCurrentRoute('admin');
+        setSelectedPdfId(null);
+        setSelectedBlogId(null);
+        return;
+      } else if (hash === '#/disclaimer') {
+        setCurrentRoute('disclaimer');
+        setSelectedPdfId(null);
+        setSelectedBlogId(null);
+        return;
       }
+
+      // 2. Fallback/Process direct clean pathname-based routing targets
+      if (pathname.startsWith('/pdf/')) {
+        let id = pathname.replace('/pdf/', '');
+        if (id.endsWith('/')) id = id.slice(0, -1);
+        if (id) {
+          setSelectedPdfId(id);
+          setSelectedBlogId(null);
+          setCurrentRoute('details');
+          return;
+        }
+      } else if (pathname.startsWith('/blog/')) {
+        let id = pathname.replace('/blog/', '');
+        if (id.endsWith('/')) id = id.slice(0, -1);
+        if (id) {
+          setSelectedBlogId(id);
+          setSelectedPdfId(null);
+          setCurrentRoute('blog-details');
+          return;
+        }
+      } else if (pathname === '/blog' || pathname === '/blog/') {
+        setCurrentRoute('blog');
+        setSelectedPdfId(null);
+        setSelectedBlogId(null);
+        return;
+      } else if (pathname === '/admin' || pathname === '/admin/') {
+        setCurrentRoute('admin');
+        setSelectedPdfId(null);
+        setSelectedBlogId(null);
+        return;
+      } else if (pathname === '/disclaimer' || pathname === '/disclaimer/') {
+        setCurrentRoute('disclaimer');
+        setSelectedPdfId(null);
+        setSelectedBlogId(null);
+        return;
+      }
+
+      // 3. Fallback to Home if unmatched path
+      setCurrentRoute('home');
+      setSelectedPdfId(null);
+      setSelectedBlogId(null);
     };
 
-    handlePathRouter();
+    // Evaluate route on initial load
+    handleHashRouter();
 
-    // Listen to history popstate (e.g. browser back/forward buttons)
-    window.addEventListener('popstate', handlePathRouter);
-    // Listen to client-side navigation custom dispatches
-    window.addEventListener('app-navigate', handlePathRouter);
+    // Setup reliable event hooks
+    window.addEventListener('hashchange', handleHashRouter);
+    window.addEventListener('popstate', handleHashRouter);
+    window.addEventListener('app-navigate', handleHashRouter);
 
     return () => {
-      window.removeEventListener('popstate', handlePathRouter);
-      window.removeEventListener('app-navigate', handlePathRouter);
+      window.removeEventListener('hashchange', handleHashRouter);
+      window.removeEventListener('popstate', handleHashRouter);
+      window.removeEventListener('app-navigate', handleHashRouter);
     };
   }, []);
 
-  // Global anchor link intercept to convert click pathways to SPA pushState seamlessly
+  // Global anchor click override mapping path routes inside client hash to secure zero 404
   useEffect(() => {
     const handleAnchorClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -198,10 +276,7 @@ export default function App() {
         const hrefAttr = anchor.getAttribute('href');
         if (hrefAttr) {
           if (hrefAttr.startsWith('#/')) {
-            e.preventDefault();
-            const cleanPath = hrefAttr.substring(1); // strip first hash char
-            window.history.pushState(null, '', cleanPath);
-            window.dispatchEvent(new Event('app-navigate'));
+            // standard hash, let naturally trigger hashchange
             return;
           }
           if (hrefAttr === '#') {
@@ -213,7 +288,6 @@ export default function App() {
           try {
             const url = new URL(anchor.href, window.location.href);
             if (url.origin === window.location.origin) {
-              // Bypass client-side SPA routing for backend endpoints or explicit downloads
               if (url.pathname.startsWith('/api/') || anchor.hasAttribute('download')) {
                 return;
               }
@@ -229,6 +303,14 @@ export default function App() {
                 if (detailsId.endsWith('/')) {
                   detailsId = detailsId.slice(0, -1);
                 }
+              } else if (relativePath.startsWith('/blog/')) {
+                route = 'blog-details';
+                detailsId = relativePath.replace('/blog/', '');
+                if (detailsId.endsWith('/')) {
+                  detailsId = detailsId.slice(0, -1);
+                }
+              } else if (relativePath === '/blog') {
+                route = 'blog';
               } else if (relativePath === '/admin') {
                 route = 'admin';
               } else if (relativePath === '/disclaimer') {
@@ -238,7 +320,7 @@ export default function App() {
               hashNavigateTo(route, detailsId);
             }
           } catch (e) {
-            console.error("SEO dynamic link parse issue:", e);
+            console.error("Link parsing check:", e);
           }
         }
       }
@@ -403,25 +485,80 @@ export default function App() {
     }
   };
 
+  // Dynamic fetcher for separate Blog catalog database
+  const fetchBlogs = async () => {
+    setBlogsLoading(true);
+    const loadFallbackBlogs = () => {
+      const cached = safeLocalStorage.getItem('officers_academy_fallback_blogs');
+      if (cached) {
+        try {
+          setBlogs(JSON.parse(cached));
+        } catch {
+          setBlogs(INITIAL_FALLBACK_BLOGS);
+        }
+      } else {
+        setBlogs(INITIAL_FALLBACK_BLOGS);
+      }
+    };
+
+    try {
+      const q = query(collection(db, 'blogs'), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const docsList: BlogPost[] = [];
+      querySnapshot.forEach((doc) => {
+        docsList.push({ id: doc.id, ...doc.data() } as BlogPost);
+      });
+      if (docsList.length > 0) {
+        setBlogs(docsList);
+        safeLocalStorage.setItem('officers_academy_fallback_blogs', JSON.stringify(docsList));
+      } else {
+        loadFallbackBlogs();
+      }
+    } catch (e) {
+      console.warn("Failed to retrieve custom blogs collection: ", e);
+      loadFallbackBlogs();
+    } finally {
+      setBlogsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchPublicDocs();
     fetchCategories();
+    fetchBlogs();
   }, [currentRoute]);
 
-  // Navigate helper modifying HTML5 pathname location
-  const hashNavigateTo = (route: string, detailsId?: string) => {
+  // Navigate helper modifying client-side URL or location securely with hash fallback
+  const hashNavigateTo = (route: string, id?: string) => {
     let targetPath = '/';
+    let targetHash = '#/';
     if (route === 'home') {
       targetPath = '/';
+      targetHash = '#/';
     } else if (route === 'admin') {
       targetPath = '/admin';
+      targetHash = '#/admin';
     } else if (route === 'disclaimer') {
       targetPath = '/disclaimer';
-    } else if (route === 'details' && detailsId) {
-      targetPath = `/pdf/${detailsId}`;
+      targetHash = '#/disclaimer';
+    } else if (route === 'blog') {
+      targetPath = '/blog';
+      targetHash = '#/blog';
+    } else if (route === 'details' && id) {
+      targetPath = `/pdf/${id}`;
+      targetHash = `#/pdf/${id}`;
+    } else if (route === 'blog-details' && id) {
+      targetPath = `/blog/${id}`;
+      targetHash = `#/blog/${id}`;
     }
 
-    window.history.pushState(null, '', targetPath);
+    try {
+      // Modern pushState keeps URLs extraordinarily clean (e.g., /pdf/some-id)
+      window.history.pushState(null, '', targetPath);
+    } catch (e) {
+      // Safe fallback for sandboxed iFrames or restricted environments
+      window.location.hash = targetHash;
+    }
     window.dispatchEvent(new Event('app-navigate'));
   };
 
@@ -430,9 +567,9 @@ export default function App() {
     setAuthError(null);
     try {
       await loginWithGoogle();
-      if (currentRoute !== 'details') {
+      if (currentRoute !== 'details' && currentRoute !== 'blog-details') {
         setCurrentRoute('home');
-        window.history.pushState(null, '', '/');
+        window.location.hash = '#/';
         window.dispatchEvent(new Event('app-navigate'));
       }
     } catch (e: any) {
@@ -455,7 +592,7 @@ export default function App() {
       await logoutUser();
       setUser(null);
       setIsAdmin(false);
-      window.history.pushState(null, '', '/');
+      window.location.hash = '#/';
       window.dispatchEvent(new Event('app-navigate'));
     } catch (e) {
       console.error(e);
@@ -538,6 +675,21 @@ export default function App() {
               </button>
             )}
 
+            <button
+              onClick={() => {
+                setCurrentRoute('blog');
+                hashNavigateTo('blog');
+              }}
+              className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-sketch font-bold transition-all flex items-center space-x-1 sm:space-x-1.5 border-2 border-slate-900 cursor-pointer ${
+                currentRoute === 'blog' || currentRoute === 'blog-details'
+                  ? 'bg-[#FFE600] text-slate-900 shadow-[2px_2px_0px_#000]'
+                  : 'bg-white text-slate-700 hover:bg-slate-50 shadow-[1px_1px_0px_#000] hover:shadow-[2.5px_2.5px_0px_#000] active:translate-y-0.5'
+              }`}
+            >
+              <BookOpen className="h-3.5 w-3.5 stroke-[2.5]" />
+              <span>{lang === 'hi' ? 'ब्लॉग अपडेट्स' : 'Blog Updates'}</span>
+            </button>
+
             <div className="h-4 w-[1px] sm:h-5 sm:w-[2px] bg-slate-900"></div>
 
             {/* Language Toggler Desktop */}
@@ -582,31 +734,31 @@ export default function App() {
         <main className="flex-1 max-w-7xl mx-auto w-full px-0 sm:px-6 py-4 sm:py-10">
           {currentRoute === 'home' && (
             <div className="animate-fade-in">
-              {/* Custom Hero banner - beautiful notebook card with tape and highlights */}
-              <div className="mx-4 sm:mx-0 bg-white border-2 border-slate-900 rounded-2xl p-6 flex items-center justify-between mb-8 select-none relative shadow-[4px_4px_0px_#000] overflow-hidden bg-[radial-gradient(#e5e3d7_1px,transparent_1px)] [background-size:12px_12px]">
+              {/* Custom Hero banner - beautiful dark premium notebook card with tape and highlights */}
+              <div className="mx-4 sm:mx-0 bg-slate-950 border-2 border-slate-900 rounded-2xl p-6 flex items-center justify-between mb-8 select-none relative shadow-[4px_4px_0px_#000] overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px]">
                 {/* Visual washi tape on the upper right corner */}
-                <div className="absolute -top-1 right-12 w-20 h-5 bg-[#FFE600]/80 border-x border-slate-500 border-dashed rotate-[-4deg] z-20 shadow-sm flex items-center justify-center text-[8px] font-hand text-slate-800 tracking-wider">
+                <div className="absolute -top-1 right-12 w-20 h-5 bg-[#FFE600]/90 border-x border-slate-900 border-dashed rotate-[-4deg] z-20 shadow-sm flex items-center justify-center text-[8px] font-hand text-slate-950 font-black tracking-wider">
                   HOT TOPICS INDEXED
                 </div>
 
                 <div className="max-w-xl z-10">
-                  <div className="flex items-center space-x-2 text-slate-900 text-xs font-sketch font-extrabold uppercase tracking-wider mb-2">
-                    <Star className="h-4 w-4 fill-[#FFE600] text-slate-900 stroke-[2]" />
-                    <span className="relative inline-block">
-                      <span className="absolute inset-x-0 bottom-0.5 h-2.5 bg-[#FFE600]/80 -rotate-1 -z-10"></span>
+                  <div className="flex items-center space-x-2 text-amber-400 text-xs font-sketch font-extrabold tracking-wider mb-2">
+                    <Star className="h-4 w-4 fill-[#FFE600] text-slate-950 stroke-[2]" />
+                    <span className="relative inline-block text-white">
+                      <span className="absolute inset-x-0 bottom-0.5 h-2.5 bg-[#FFE600]/20 -rotate-1 -z-10"></span>
                       {realDateTime}
                     </span>
                   </div>
-                  <h1 className="text-lg lg:text-xl font-sketch font-bold tracking-tight text-slate-900 leading-tight mb-2 uppercase">
+                  <h1 className="text-lg lg:text-xl font-sketch font-bold tracking-tight text-white leading-tight mb-2 uppercase">
                     {lang === 'hi' ? 'स्वागत है आपका ऑफिसर्स अकादमी पोर्टल पर' : 'Welcome to Officers Academy Portal'}
                   </h1>
-                  <p className="text-[11px] text-slate-600 font-sans font-bold leading-relaxed">
+                  <p className="text-[11px] text-slate-300 font-sans font-bold leading-relaxed">
                     {lang === 'hi' 
                        ? 'उच्च गुणवत्ता वाले पिछले वर्ष के प्रश्न पत्र, पाठ्यक्रम नियमावलियाँ और अध्ययन नोट्स सुरक्षित सर्वर से प्राप्त करें।' 
                        : 'Verified syllabus worksheets, previous year questionnaires, and chapter notes stored directly on secure drive hosting.'}
                   </p>
                 </div>
-                <div className="hidden lg:block bg-amber-50 p-4 rounded-xl border-2 border-slate-900 text-slate-900 shadow-[3px_3px_0px_#000] z-10 rotate-3">
+                <div className="hidden lg:block bg-slate-900 p-4 rounded-xl border-2 border-slate-800 text-[#FFE600] shadow-[3px_3px_0px_#000] z-10 rotate-3">
                   <GraduationCap className="h-10 w-10 stroke-[2.2]" />
                 </div>
               </div>
@@ -795,6 +947,29 @@ export default function App() {
           {currentRoute === 'disclaimer' && (
             <div className="animate-fade-in animate-once">
               <Disclaimer onBack={() => hashNavigateTo('home')} lang={lang} />
+            </div>
+          )}
+
+          {currentRoute === 'blog' && (
+            <div className="animate-fade-in">
+              <BlogPage 
+                blogs={blogs} 
+                onBack={() => hashNavigateTo('home')} 
+                onNavigateToBlog={(id) => hashNavigateTo('blog-details', id)} 
+                lang={lang} 
+                loading={blogsLoading} 
+              />
+            </div>
+          )}
+
+          {currentRoute === 'blog-details' && selectedBlogId && (
+            <div className="animate-fade-in">
+              <BlogDetailsPage 
+                blogId={selectedBlogId} 
+                blogs={blogs} 
+                onBack={() => hashNavigateTo('blog')} 
+                lang={lang} 
+              />
             </div>
           )}
 
