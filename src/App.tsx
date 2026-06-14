@@ -815,7 +815,7 @@ export default function App() {
         </div>
 
         {/* MOBILE APP BODY */}
-        <div className={`flex-1 overflow-y-auto ${currentRoute === 'details' ? 'px-0 pt-0' : 'px-5 pt-[14px]'}`} id="appScrollContainer">
+        <div className={`flex-1 overflow-y-auto ${currentRoute === 'details' || (currentRoute === 'home' && activeMobileTab === 'admin') ? 'px-0 pt-0' : 'px-5 pt-[14px]'}`} id="appScrollContainer">
           
           {currentRoute === 'home' && (
             <div className="animate-fade-in">
@@ -1170,7 +1170,7 @@ export default function App() {
               {/* 5. ADMIN/DASHBOARD TAB FOR MOBILE */}
               {activeMobileTab === 'admin' && isAdmin && (
                 <div className="animate-fade-in">
-                  <div className="mb-5 mt-2 select-none">
+                  <div className="mb-4 mt-3 px-4 select-none">
                     <span className="text-[10px] uppercase font-sketch font-bold text-indigo-600 tracking-wider">
                       {lang === 'hi' ? 'मुख्य प्रशासनिक नियंत्रण' : 'COMMAND CENTER'}
                     </span>

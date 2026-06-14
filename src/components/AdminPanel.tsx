@@ -653,10 +653,10 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 text-slate-800 antialiased font-sans">
+    <div className="max-w-7xl mx-auto px-0 sm:px-4 py-4 sm:py-6 text-slate-800 antialiased font-sans">
       
       {/* Welcome Title - Responsive Administrative Header */}
-      <div className="bg-white border-2 border-slate-900 rounded-2xl p-4 sm:p-5 mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-[4px_4px_0px_#000]">
+      <div className="bg-white border-y-2 sm:border-2 border-slate-900 sm:rounded-2xl rounded-none p-4 sm:p-5 mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:shadow-[4px_4px_0px_#000] shadow-none">
         <div>
           <h2 className="text-base sm:text-lg font-sketch font-extrabold tracking-tight text-slate-900 flex items-center space-x-2">
             <LayoutDashboard className="h-5 w-5 text-indigo-600 stroke-[2.5]" />
@@ -793,7 +793,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
           </div>
 
           {/* Search Table Block */}
-          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.02)] mb-12">
+          <div className="bg-white border-y sm:border border-slate-200 border-x-0 sm:rounded-3xl rounded-none overflow-hidden shadow-none sm:shadow-[0_4px_24px_rgba(0,0,0,0.02)] mb-12">
             
             {/* Table Search filter */}
             <div className="p-5 border-b border-slate-50 bg-slate-50/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -984,7 +984,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
         </>
       ) : activeTab === 'categories' ? (
         /* Dynamic Category Management Panel */
-        <div className="bg-white border-2 border-slate-900 rounded-2xl p-4 sm:p-8 max-w-4xl mx-auto shadow-[6px_6px_0px_#0f172a] relative overflow-hidden mb-12 animate-fade-in bg-[radial-gradient(#e5e3d7_1px,transparent_1px)] [background-size:16px_16px]">
+        <div className="bg-white border-y-2 sm:border-2 border-slate-900 sm:rounded-2xl rounded-none p-4 sm:p-8 max-w-4xl mx-auto sm:shadow-[6px_6px_0px_#0f172a] shadow-none relative overflow-hidden mb-12 animate-fade-in bg-[radial-gradient(#e5e3d7_1px,transparent_1px)] [background-size:16px_16px]">
           <div className="border-b-2 border-slate-900 border-dashed pb-5 mb-6">
             <h3 className="text-base sm:text-lg font-sketch font-bold tracking-tight text-slate-900 flex items-center space-x-2.5">
               <FolderPlus className="h-5.5 w-5.5 text-indigo-600 stroke-[2.2]" />
@@ -1111,7 +1111,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
         </div>
       ) : activeTab === 'admins' ? (
         /* Admin Delegation Interface - STYLED IN ULTRAPREMIUM CHIC MINIMAL RETRO WEB STYLE */
-        <div className="bg-white border-2 border-slate-900 rounded-2xl p-4 sm:p-8 max-w-4xl mx-auto shadow-[6px_6px_0px_#0f172a] relative overflow-hidden mb-12 animate-fade-in bg-[radial-gradient(#e5e3d7_1px,transparent_1px)] [background-size:16px_16px]">
+        <div className="bg-white border-y-2 sm:border-2 border-slate-900 sm:rounded-2xl rounded-none p-4 sm:p-8 max-w-4xl mx-auto sm:shadow-[6px_6px_0px_#0f172a] shadow-none relative overflow-hidden mb-12 animate-fade-in bg-[radial-gradient(#e5e3d7_1px,transparent_1px)] [background-size:16px_16px]">
           <div className="border-b-2 border-slate-900 border-dashed pb-5 mb-6">
             <h3 className="text-base sm:text-lg font-sketch font-bold tracking-tight text-slate-900 flex items-center space-x-2.5">
               <ShieldCheck className="h-5.5 w-5.5 text-indigo-600 stroke-[2.2]" />
@@ -1272,7 +1272,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
         </div>
       ) : (
         /* Action Editor Form Tab - STYLED IN ULTRAPREMIUM CHIC MINIMAL RETRO WEB STYLE */
-        <div className="bg-white border-2 border-slate-900 rounded-2xl p-4 sm:p-8 max-w-4xl mx-auto shadow-[6px_6px_0px_#0f172a] relative overflow-hidden mb-12 animate-fade-in bg-[radial-gradient(#e5e3d7_1px,transparent_1px)] [background-size:16px_16px]">
+        <div className="bg-white border-y-2 sm:border-2 border-slate-900 sm:rounded-2xl rounded-none p-4 sm:p-8 max-w-4xl mx-auto sm:shadow-[6px_6px_0px_#0f172a] shadow-none relative overflow-hidden mb-12 animate-fade-in bg-[radial-gradient(#e5e3d7_1px,transparent_1px)] [background-size:16px_16px]">
           
           <div className="flex items-center space-x-3.5 pb-4 mb-6 border-b-2 border-slate-900 border-dashed">
             <div className="bg-amber-400 p-3 rounded-xl text-slate-950 border-2 border-slate-900 shadow-[2px_2px_0px_#000]">
