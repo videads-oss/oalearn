@@ -127,20 +127,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
         }
       };
 
-      // If WordPress is active, load from WP REST API or fallback storage instead of Firestore!
-      if (typeof window !== 'undefined' && (window as any).wpData) {
-        tryFallbackDetails();
-        setLoading(false);
-        
-        // Let's also dynamically record a view in WordPress via endpoint!
-        try {
-          const wpBaseUrl = (window as any).wpData.restBaseUrl;
-          fetch(`${wpBaseUrl}/pdf/${pdfId}/view`, { method: 'POST' });
-        } catch (wpClickErr) {
-          console.warn("WordPress metrics counting error: ", wpClickErr);
-        }
-        return;
-      }
+
 
       try {
         const docRef = doc(db, 'pdfs', pdfId);
@@ -274,40 +261,7 @@ export default function PdfDetails({ pdfId, onBack, lang, user, onSignIn }: PdfD
     if (!Array.isArray(currentList)) currentList = [];
     const index = currentList.findIndex(p => p.id === pdf.id);
 
-    // Support WordPress metrics tracking natively!
-    if (typeof window !== 'undefined' && (window as any).wpData) {
-      try {
-        const wpBaseUrl = (window as any).wpData.restBaseUrl;
-        const endpoint = type === 'download' ? 'download' : 'view';
-        const response = await fetch(`${wpBaseUrl}/pdf/${pdf.id}/${endpoint}`, { method: 'POST' });
-        if (response.ok) {
-          const result = await response.json();
-          if (type === 'download') {
-            setPdf(prev => prev ? { ...prev, downloadCount: result.downloadCount } : null);
-          } else {
-            setPdf(prev => prev ? { ...prev, clickCount: result.clickCount } : null);
-          }
-        }
-      } catch (wpErr) {
-        console.warn("WordPress metrics tracking failed: ", wpErr);
-      }
-      
-      // Update local storage in WordPress mode as well
-      if (index !== -1) {
-        currentList[index] = {
-          ...currentList[index],
-          clickCount: type === 'view' ? (currentList[index].clickCount || 0) + 1 : (currentList[index].clickCount || 0),
-          downloadCount: type === 'download' ? (currentList[index].downloadCount || 0) + 1 : (currentList[index].downloadCount || 0)
-        };
-        safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(currentList));
-      }
-      
-      // Proceed to secure ad redirect screen
-      setRedirectType(type);
-      setProgress(0);
-      setTimerCountdown(30);
-      return;
-    }
+
 
     // Save increment in Firestore database first
     try {

@@ -153,8 +153,10 @@ export default function App() {
   useEffect(() => {
     const handlePathRouter = () => {
       const path = window.location.pathname;
-      if (path.startsWith('/pdf/')) {
-        let id = path.replace('/pdf/', '');
+      let relativePath = path;
+
+      if (relativePath.startsWith('/pdf/')) {
+        let id = relativePath.replace('/pdf/', '');
         if (id.endsWith('/')) {
           id = id.slice(0, -1);
         }
@@ -164,9 +166,9 @@ export default function App() {
         } else {
           setCurrentRoute('home');
         }
-      } else if (path === '/admin') {
+      } else if (relativePath === '/admin') {
         setCurrentRoute('admin');
-      } else if (path === '/disclaimer') {
+      } else if (relativePath === '/disclaimer') {
         setCurrentRoute('disclaimer');
       } else {
         setCurrentRoute('home');
@@ -219,12 +221,17 @@ export default function App() {
               let route = 'home';
               let detailsId: string | undefined;
               
-              if (url.pathname.startsWith('/pdf/')) {
+              let relativePath = url.pathname;
+
+              if (relativePath.startsWith('/pdf/')) {
                 route = 'details';
-                detailsId = url.pathname.replace('/pdf/', '');
-              } else if (url.pathname === '/admin') {
+                detailsId = relativePath.replace('/pdf/', '');
+                if (detailsId.endsWith('/')) {
+                  detailsId = detailsId.slice(0, -1);
+                }
+              } else if (relativePath === '/admin') {
                 route = 'admin';
-              } else if (url.pathname === '/disclaimer') {
+              } else if (relativePath === '/disclaimer') {
                 route = 'disclaimer';
               }
               
@@ -330,22 +337,7 @@ export default function App() {
       }
     };
 
-    // WordPress dynamic runtime detection
-    if (typeof window !== 'undefined' && (window as any).wpData) {
-      try {
-        const wpBaseUrl = (window as any).wpData.restBaseUrl;
-        const response = await fetch(`${wpBaseUrl}/pdfs`);
-        if (response.ok) {
-          const wpPdfs = await response.json();
-          setPdfs(wpPdfs);
-          safeLocalStorage.setItem('officers_academy_fallback_pdfs', JSON.stringify(wpPdfs));
-          setDbLoading(false);
-          return;
-        }
-      } catch (wpError) {
-        console.error("WordPress active API listing failure, falling back to cached indices: ", wpError);
-      }
-    }
+
 
     try {
       const q = query(collection(db, 'pdfs'), orderBy('createdAt', 'desc'));
@@ -377,20 +369,7 @@ export default function App() {
   };
 
   const fetchCategories = async () => {
-    // WordPress dynamic runtime detection
-    if (typeof window !== 'undefined' && (window as any).wpData) {
-      try {
-        const wpBaseUrl = (window as any).wpData.restBaseUrl;
-        const response = await fetch(`${wpBaseUrl}/categories`);
-        if (response.ok) {
-          const wpCats = await response.json();
-          setCategoriesList(wpCats);
-          return;
-        }
-      } catch (wpCatError) {
-        console.error("WordPress categories REST fetching error: ", wpCatError);
-      }
-    }
+
 
     try {
       const q = query(collection(db, 'categories'));
@@ -501,7 +480,7 @@ export default function App() {
 
     const matchesSearch = 
       pdf.title.toLowerCase().includes(queryTerm) || 
-      pdf.category.toLowerCase().includes(queryTerm) ||
+      (pdf.category || '').toLowerCase().includes(queryTerm) ||
       (pdf.tags && pdf.tags.some(tag => tag.toLowerCase().includes(queryTerm)));
     
     return matchesSearch;
