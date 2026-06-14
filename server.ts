@@ -85,6 +85,17 @@ async function startServer() {
     return result;
   }
 
+  // Rewrite/Redirect relative asset requests made from subpages like /pdf/:id
+  app.use((req, res, next) => {
+    // If the browser requests a static file under /pdf/ (e.g., /pdf/assets/logo.png or /pdf/favicon.ico)
+    if (req.path.startsWith('/pdf/') && (req.path.includes('/assets/') || req.path.includes('/src/') || req.path.match(/\.[a-zA-Z0-9]+$/))) {
+      const cleanPath = req.url.replace(/^\/pdf/, '');
+      console.log(`[Asset Rewriter] Transforming subpage layout asset request: ${req.url} -> ${cleanPath}`);
+      req.url = cleanPath; // Perform the internal express rewrite seamlessly
+    }
+    next();
+  });
+
   // API Routes / Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
