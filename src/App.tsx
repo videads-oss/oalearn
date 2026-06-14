@@ -18,7 +18,8 @@ import Disclaimer from './components/Disclaimer';
 import { 
   Search, Sparkles, LogIn, ShieldCheck, Download, Eye, BookOpen,
   ArrowRight, FolderOpen, AlertCircle, RefreshCw, Star, Info, GraduationCap,
-  Home, Shield, Globe, UserCheck, Wifi, Battery, BatteryCharging, Signal, Tag, ChevronRight, CheckCircle, LogOut
+  Home, Shield, Globe, UserCheck, Wifi, Battery, BatteryCharging, Signal, Tag, ChevronRight, CheckCircle, LogOut,
+  HelpCircle
 } from 'lucide-react';
 
 export default function App() {
@@ -90,6 +91,10 @@ export default function App() {
     canManageAdmins: false,
   });
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Auth Troubleshooting State
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [showTroubleshoot, setShowTroubleshoot] = useState(false);
 
   // Database PDF catalog
   const [pdfs, setPdfs] = useState<PdfDocument[]>([]);
@@ -297,12 +302,23 @@ export default function App() {
 
   // Google Authentication Helper
   const handleSignIn = async () => {
+    setAuthError(null);
     try {
       await loginWithGoogle();
       setCurrentRoute('home');
       window.location.hash = '/';
-    } catch (e) {
+    } catch (e: any) {
       console.error("Google Authenticator Connection Error: ", e);
+      let errMsg = e?.message || String(e);
+      if (e?.code === 'auth/unauthorized-domain') {
+        errMsg = "Unauthorized Domain Error: Firebase has blocked sign-in from this web domain.";
+      } else if (e?.code === 'auth/popup-closed-by-user') {
+        errMsg = "Sign-in popup was closed before completion.";
+      } else if (e?.code === 'auth/popup-blocked') {
+        errMsg = "Web browser blocked the login popup. Please allow popups.";
+      }
+      setAuthError(errMsg);
+      setShowTroubleshoot(true);
     }
   };
 
@@ -640,6 +656,13 @@ export default function App() {
                         className="h-4.5 w-4.5"
                       />
                       <span>{lang === 'hi' ? 'गूगल से लॉगिन करें' : 'Sign In with Google'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowTroubleshoot(true)}
+                      className="mt-4 text-xs text-indigo-600 hover:text-indigo-800 underline block mx-auto font-sans font-bold cursor-pointer"
+                    >
+                      {lang === 'hi' ? 'oalearn.com पर गूगल लॉगिन काम नहीं कर रहा?' : 'Google Login not working on oalearn.com? Click here'}
                     </button>
                   </div>
                 </div>
@@ -1055,6 +1078,13 @@ export default function App() {
                           <LogIn className="h-4.5 w-4.5 stroke-[2.5]" />
                           <span>Google Sign In</span>
                         </button>
+
+                        <button
+                          onClick={() => setShowTroubleshoot(true)}
+                          className="mt-3 text-[11px] text-slate-650 underline font-semibold font-sans block mx-auto cursor-pointer"
+                        >
+                          {lang === 'hi' ? 'oalearn.com पर लॉगिन गाइड' : 'Google Login not working on oalearn.com?'}
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1106,6 +1136,13 @@ export default function App() {
                       />
                       <span>{lang === 'hi' ? 'गूगल से लॉगिन करें' : 'Sign In with Google'}</span>
                     </button>
+
+                    <button
+                      onClick={() => setShowTroubleshoot(true)}
+                      className="mt-3.5 text-xs text-indigo-600 font-sans font-bold hover:text-indigo-800 underline block mx-auto cursor-pointer"
+                    >
+                      {lang === 'hi' ? 'oalearn.com पर गूगल लॉगिन समस्या?' : 'Google Login not working on oalearn.com?'}
+                    </button>
                   </div>
                 </div>
               )}
@@ -1120,8 +1157,8 @@ export default function App() {
 
         </div>
 
-        {/* FLOATING BOTTOM TAB DOCK MOBILE */}
-        <div className="absolute bottom-5 left-4 right-4 bg-white border-2 border-slate-900 h-16 rounded-2xl shadow-[4px_4px_0px_#000] flex items-center justify-around px-2 z-40 shrink-0 select-none">
+        {/* STRETCHED & STICKY FIXED BOTTOM NAVIGATION FOR MOBILE */}
+        <div className="fixed bottom-0 left-0 right-0 w-full bg-white border-t-2 border-slate-900 h-16 flex items-center justify-around px-2 z-50 shrink-0 select-none shadow-[0_-3px_10px_rgba(0,0,0,0.06)]">
           
           <button 
             onClick={() => {
@@ -1199,6 +1236,107 @@ export default function App() {
         </div>
 
       </div>
+
+      {/* GOOGLE AUTHENTICATION TROUBLESHOOTING MODAL */}
+      {showTroubleshoot && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border-4 border-slate-900 rounded-2xl w-full max-w-lg p-6 shadow-[8px_8px_0px_#000] relative animate-fade-in select-none">
+            {/* Close button */}
+            <button 
+              onClick={() => setShowTroubleshoot(false)}
+              className="absolute top-4 right-4 bg-rose-100 hover:bg-rose-200 border-2 border-slate-900 rounded-xl p-1 px-2.5 text-xs font-sketch font-bold text-slate-850 transition shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer"
+            >
+              ✕ {lang === 'hi' ? 'बंद करें' : 'Close'}
+            </button>
+
+            <div className="flex items-center space-x-3 mb-4 border-b-2 border-dashed border-slate-200 pb-3">
+              <div className="bg-[#FFE600] p-2.5 rounded-xl border-2 border-slate-900 shadow-[2px_2px_0px_#000] shrink-0 text-slate-950">
+                <HelpCircle className="h-6 w-6 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="text-base font-sketch font-extrabold text-slate-900 leading-tight">
+                  {lang === 'hi' ? 'गूगल लॉगिन गाइड 🛠️' : 'Google Login Setup Guide 🛠️'}
+                </h3>
+                <span className="text-[10px] text-slate-400 font-mono font-bold uppercase">oalearn.com Authorized Domain</span>
+              </div>
+            </div>
+
+            {authError && (
+              <div className="bg-rose-50 border-2 border-rose-400 p-3 rounded-xl mb-4 text-left">
+                <span className="text-[10px] font-mono uppercase font-bold text-rose-500 block mb-0.5">Detected Firebase Error:</span>
+                <p className="text-xs font-mono font-bold text-rose-800 break-words leading-tight">
+                  {authError}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-4 text-left max-h-[320px] overflow-y-auto pr-1 font-sans">
+              <p className="text-xs text-slate-700 leading-relaxed font-semibold">
+                {lang === 'hi' 
+                  ? "यदि oalearn.com पर गूगल लॉगिन काम नहीं कर रहा है, तो इसका मुख्य कारण है कि फ़ायरबेस सिक्योर फ़ायरवॉल को अभी आपके डोमेन की अनुमति नहीं मिली है। इसे ठीक करने के लिए निम्नलिखित चरणों का पालन करें:"
+                  : "If Google Sign-In is failing on your custom domain, it fits the classic issue of domain restriction on Firebase. Please complete these quick steps inside your Firebase Console:"}
+              </p>
+
+              <div className="border bg-amber-50/50 border-slate-350 rounded-xl p-3.5 space-y-3 text-xs">
+                <div>
+                  <h4 className="font-sketch font-black text-slate-900 uppercase tracking-tight text-xs mb-1">
+                    {lang === 'hi' ? '1. फ़ायरबेस कंसोल खोलें' : '1. Open Firebase Console'}
+                  </h4>
+                  <p className="text-[11px] text-slate-650 leading-relaxed font-semibold">
+                    {lang === 'hi'
+                      ? "Firebase Console (console.firebase.google.com) में अपने अकादमी प्रोजेक्ट को खोलें।"
+                      : "Navigate to your Firebase Project Dashboard at console.firebase.google.com."}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-sketch font-black text-slate-900 uppercase tracking-tight text-xs mb-1">
+                    {lang === 'hi' ? '2. ऑथेंटिकेशन सेटिंग्स में जाएं' : '2. Navigate to Auth Settings'}
+                  </h4>
+                  <p className="text-[11px] text-slate-650 leading-relaxed font-semibold">
+                    {lang === 'hi'
+                      ? "Authentication -> Settings टैब पर क्लिक करें।"
+                      : "Go to Authentication on left sidebar, then click on the 'Settings' tab."}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-sketch font-black text-slate-900 uppercase tracking-tight text-xs mb-1">
+                    {lang === 'hi' ? '3. अधिकृत डोमेन (Authorized domains) जोड़ें' : '3. Add Authorized Domains'}
+                  </h4>
+                  <p className="text-[11px] text-slate-650 leading-relaxed font-semibold">
+                    {lang === 'hi'
+                      ? "Authorized domains सेक्शन पर जाएं, 'Add domain' पर क्लिक करके 'oalearn.com' और 'www.oalearn.com' जोड़ें।"
+                      : "Scroll to the 'Authorized domains' section, click 'Add domain', and save 'oalearn.com' (and optionally 'www.oalearn.com')."}
+                  </p>
+                  <div className="mt-1.5 flex gap-1.5">
+                    <span className="bg-white border border-slate-300 font-mono text-[9px] px-2 py-0.5 rounded-md text-slate-700 font-bold">oalearn.com</span>
+                    <span className="bg-white border border-slate-300 font-mono text-[9px] px-2 py-0.5 rounded-md text-slate-700 font-bold">www.oalearn.com</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 border-t-2 border-dashed border-slate-200 pt-4 flex gap-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText('oalearn.com');
+                  alert('Domain oalearn.com copied to clipboard!');
+                }}
+                className="flex-1 bg-slate-50 hover:bg-slate-100 border-2 border-slate-900 text-slate-800 font-sketch font-bold py-2.5 px-3 rounded-xl text-xs transition shadow-[3px_3px_0px_#000] active:translate-y-0.5 cursor-pointer text-center"
+              >
+                📋 {lang === 'hi' ? 'डोमेन कॉपी करें' : 'Copy Domain'}
+              </button>
+              <button
+                onClick={() => setShowTroubleshoot(false)}
+                className="flex-1 bg-[#FFE600] hover:bg-[#FFF275] border-2 border-slate-900 text-slate-900 font-sketch font-extrabold py-2.5 px-3 rounded-xl text-xs transition shadow-[3px_3px_0px_#000] active:translate-y-0.5 cursor-pointer text-center"
+              >
+                {lang === 'hi' ? 'ठीक है, समझ गया' : 'Got it! Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
