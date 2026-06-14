@@ -81,6 +81,28 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // Real-time dynamic local date and time state
+  const [realDateTime, setRealDateTime] = useState('');
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      };
+      setRealDateTime(now.toLocaleString(lang === 'hi' ? 'hi-IN' : 'en-US', options));
+    };
+    updateDateTime();
+    const timer = setInterval(updateDateTime, 1000);
+    return () => clearInterval(timer);
+  }, [lang]);
+
   // Authentication State
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -393,6 +415,7 @@ export default function App() {
       await logoutUser();
       setUser(null);
       setIsAdmin(false);
+      setActiveMobileTab('home');
       window.history.pushState(null, '', '/');
       window.dispatchEvent(new Event('app-navigate'));
     } catch (e) {
@@ -532,7 +555,7 @@ export default function App() {
                     <Star className="h-4 w-4 fill-[#FFE600] text-slate-900 stroke-[2]" />
                     <span className="relative inline-block">
                       <span className="absolute inset-x-0 bottom-0.5 h-2.5 bg-[#FFE600]/80 -rotate-1 -z-10"></span>
-                      {lang === 'hi' ? 'अधिकारी तैयारी गाइड' : 'Supercharge Candidate Prep'}
+                      {realDateTime}
                     </span>
                   </div>
                   <h1 className="text-lg lg:text-xl font-sketch font-bold tracking-tight text-slate-900 leading-tight mb-2 uppercase">
