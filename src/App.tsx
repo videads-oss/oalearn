@@ -211,6 +211,10 @@ export default function App() {
           try {
             const url = new URL(anchor.href, window.location.href);
             if (url.origin === window.location.origin) {
+              // Bypass client-side SPA routing for backend endpoints or explicit downloads
+              if (url.pathname.startsWith('/api/') || anchor.hasAttribute('download')) {
+                return;
+              }
               e.preventDefault();
               let route = 'home';
               let detailsId: string | undefined;

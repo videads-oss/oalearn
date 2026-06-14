@@ -22,7 +22,7 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
   const t = translations[lang];
 
   // Mode configuration
-  const [activeTab, setActiveTab] = useState<'manage' | 'editor' | 'admins' | 'categories'>('manage');
+  const [activeTab, setActiveTab] = useState<'manage' | 'editor' | 'admins' | 'categories' | 'wordpress'>('manage');
   const [editingPdf, setEditingPdf] = useState<PdfDocument | null>(null);
 
   // Administrative team management states
@@ -758,6 +758,21 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
               <span>{lang === 'hi' ? 'भूमिकाएं' : 'Admin Roles'}</span>
             </button>
           )}
+
+          <button
+            onClick={() => {
+              resetForm();
+              setActiveTab('wordpress');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-sketch font-bold text-xs transition-all duration-200 flex items-center space-x-1.5 shrink-0 cursor-pointer ${
+              activeTab === 'wordpress'
+                ? 'bg-black text-[#FFE000] shadow-sm'
+                : 'bg-[#90E0EF] text-black border border-black hover:bg-[#00B4D8]'
+            }`}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>{lang === 'hi' ? 'वर्डप्रेस कनवर्टर 🚀' : 'WordPress Converter 🚀'}</span>
+          </button>
         </div>
       </div>
 
@@ -1298,6 +1313,177 @@ export default function AdminPanel({ userEmail, lang, permissions }: AdminPanelP
               </div>
             )}
           </div>
+        </div>
+      ) : activeTab === 'wordpress' ? (
+        /* WordPress Integration & Packaging Panel */
+        <div className="bg-white border-y-2 sm:border-2 border-slate-900 sm:rounded-2xl rounded-none p-4 sm:p-8 max-w-4xl mx-auto sm:shadow-[6px_6px_0px_#0f172a] shadow-none relative overflow-hidden mb-12 animate-fade-in bg-[radial-gradient(#e5e3d7_1px,transparent_1px)] [background-size:16px_16px]">
+          
+          <div className="border-b-2 border-slate-900 border-dashed pb-5 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h3 className="text-base sm:text-lg font-sketch font-bold tracking-tight text-slate-900 flex items-center space-x-2.5">
+                <Sparkles className="h-5.5 w-5.5 text-[#00B4D8] stroke-[2.2]" />
+                <span className="uppercase">{lang === 'hi' ? 'वर्डप्रेस रूपांतरण एवं डाउनलोड केंद्र' : 'WordPress Live Converter & Setup Center'}</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1.5">
+                {lang === 'hi' 
+                  ? 'अपनी पूरी वेबसाइट को एक फुली वर्किंग वर्डप्रेस थीम में बदलें जिसे आप बिना कोडिंग के सीधे इम्पोर्ट कर सकते हैं।' 
+                  : 'Convert this entire premium React portal into a fully-functional self-contained WordPress theme.'}
+              </p>
+            </div>
+            <span className="bg-emerald-100 text-emerald-800 border-2 border-slate-900 px-3 py-1 text-[10px] font-sketch font-black rounded-lg self-start sm:self-center">
+              ● PRO READY v1.0.0
+            </span>
+          </div>
+
+          {/* Core Exporter Download Block */}
+          <div className="bg-[#E2F0D9] border-3 border-black p-5 sm:p-6 rounded-none shadow-[4px_4px_0px_#000] mb-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex-1">
+              <h4 className="text-sm sm:text-base font-sketch font-black text-slate-900 flex items-center justify-center sm:justify-start space-x-2 gap-1">
+                <span>📦</span>
+                <span>{lang === 'hi' ? 'वर्डप्रेस थीम ज़िप फाइल डाउनलोड करें' : 'Download WordPress Theme ZIP'}</span>
+              </h4>
+              <p className="text-xs font-bold text-slate-700 mt-2 max-w-xl leading-relaxed">
+                {lang === 'hi' 
+                  ? 'यह बटन आपकी वेबसाइट के कोड, फ्रंट-एंड डिज़ाइन्स और बैक-एंड फंक्शन्स को वर्डप्रेस-रेडी थीम ज़िप में पैक करता है जिसे आप तुरंत वर्डप्रेस पर अपलोड और इंस्टॉल कर सकते हैं।' 
+                  : 'This will bundle your entire frontend assets, offline databases, and WordPress-compatible PHP custom schemas into a single installation-ready zip package.'}
+              </p>
+            </div>
+            <a
+              href="/api/download-wp-theme"
+              download="officers-academy-theme.zip"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto text-center bg-black hover:bg-slate-800 text-[#FFE000] font-sketch font-black border-2 border-black px-6 py-3 shadow-[3px_3px_0px_#FFE000] flex items-center justify-center space-x-2 transition-all cursor-pointer active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_#000]"
+            >
+              <Download className="h-4.5 w-4.5 animate-bounce stroke-[2.5]" />
+              <span>{lang === 'hi' ? 'थीम ज़िप डाउनलोड करें 📥' : 'Download ZIP Package 📥'}</span>
+            </a>
+          </div>
+
+          {/* Bilingual Detailed Installation Guide */}
+          <div className="space-y-6">
+            <h4 className="text-xs sm:text-sm font-sketch font-black uppercase text-slate-900 border-b-2 border-black pb-2 flex items-center space-x-2">
+              <span>🛠️</span>
+              <span>{lang === 'hi' ? 'थीम इनस्टॉल और उपयोग करने की सम्पूर्ण विधि' : 'Theme Installation & Usage Guide'}</span>
+            </h4>
+
+            {/* Steps Container */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Hindi Instructions Card */}
+              <div className="bg-[#FCFAF2] border-2 border-slate-900 p-5 rounded-2xl space-y-4">
+                <h5 className="font-sketch font-extrabold text-xs sm:text-sm text-amber-800 flex items-center space-x-2 border-b border-dashed border-slate-300 pb-1.5">
+                  <span>🇮🇳</span>
+                  <span>चरण-दर-चरण वर्डप्रेस स्थापना (हिन्दी)</span>
+                </h5>
+                <ol className="space-y-4 text-xs font-semibold text-slate-700 list-decimal pl-4 leading-relaxed">
+                  <li>
+                    <strong className="text-black block mb-0.5">1. ज़िप थीम डाउनलोड करें:</strong>
+                    ऊपर दिए गए हरे बॉक्स में <strong className="text-indigo-700">"थीम ज़िप डाउनलोड करें"</strong> बटन पर क्लिक करके <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">officers-academy-theme.zip</code> फाइल कंप्यूटर में सेव करें।
+                  </li>
+                  <li>
+                    <strong className="text-black block mb-0.5">2. वर्डप्रेस में अपलोड करें:</strong>
+                    अपनी वर्डप्रेस एडमिन <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">/wp-admin</code> साइट पर लॉग-इन करें। इसके बाद <strong className="text-black">Appearance &gt; Themes &gt; Add New &gt; Upload Theme</strong> पर जाकर अपनी डाउनलोड की गई ज़िप फाइल चुनें, इंस्टॉल और सक्रिय (Activate) करें।
+                  </li>
+                  <li>
+                    <strong className="text-black block mb-0.5">3. मुख्य फीचर्स और CPT डेटा:</strong>
+                    थीम एक्टिव होते ही आपके वर्डप्रेस साइडबार में एक नया मेनू <strong className="text-indigo-700">"PDF Study Guides"</strong> जुड़ जाएगा। यह कस्टम पोस्ट टाइप और इसकी केटेगरीज़ वर्डप्रेस में तैयार मिलेंगी।
+                  </li>
+                  <li>
+                    <strong className="text-black block mb-0.5">4. अध्ययन सामग्रियां अपलोड करना:</strong>
+                    "Add New PDF Guide" पर क्लिक करके शीर्षक व डिस्क्रिप्शन लिखें। नीचे दिए गए कस्टम बॉक्स में पीडीएफ का सटीक विवरण जैसे- <strong>File Size, Page Count, SECURE Download Link, Custom Cover</strong> व <strong>Members-Only</strong> स्टेटस भरकर प्रकाशित करें।
+                  </li>
+                  <li>
+                    <strong className="text-black block mb-0.5">5. लाइव वेबसाइट देखें:</strong>
+                    इतना ही करना था! अब जब भी आप अपनी वेबसाइट खोलेंगे, पूरा रिएक्ट सुपर-फ़ास्ट पोर्टल आपकी वर्डप्रेस पोस्ट्स के साथ असली लाइव डेटा सुरक्षित दिखाते हुए फ़ास्ट लोड होगा!
+                  </li>
+                </ol>
+              </div>
+
+              {/* English Instructions Card */}
+              <div className="bg-slate-50 border-2 border-slate-900 p-5 rounded-2xl space-y-4">
+                <h5 className="font-sketch font-extrabold text-xs sm:text-sm text-indigo-800 flex items-center space-x-2 border-b border-dashed border-slate-300 pb-1.5">
+                  <span>🇬🇧</span>
+                  <span>Step-by-Step Installation Manual (English)</span>
+                </h5>
+                <ol className="space-y-4 text-xs font-semibold text-slate-700 list-decimal pl-4 leading-relaxed">
+                  <li>
+                    <strong className="text-black block mb-0.5">1. Grab Theme Zip Package:</strong>
+                    Trigger compile packaging by clicking <strong className="text-indigo-600">"Download ZIP Package"</strong> above. Save the archive to your offline device.
+                  </li>
+                  <li>
+                    <strong className="text-black block mb-0.5">2. Upload onto Core Dashboard:</strong>
+                    Go into your WordPress control center, navigate through your left-side menu to <strong className="text-black">Appearance &gt; Themes &gt; Add New Theme &gt; Upload Theme</strong>, choose your package, click install, and hit activate.
+                  </li>
+                  <li>
+                    <strong className="text-black block mb-0.5">3. Verify Automatically Provisioned Types:</strong>
+                    The system automatically generates a native WordPress Custom Post Type named <strong className="text-indigo-600">"PDF Study Guides"</strong> alongside custom metadata structures and study taxonomies.
+                  </li>
+                  <li>
+                    <strong className="text-black block mb-0.5">4. Seeding document items:</strong>
+                    Click "Add New PDF Guide", add content/title, and fill in advanced field boxes (File Sizes, Third Party download gates, gated memberships) from the meta fields, and hit Publish.
+                  </li>
+                  <li>
+                    <strong className="text-black block mb-0.5">5. Zero Config Live Sync:</strong>
+                    The fast single-page app is enqueued cleanly and calls WordPress background REST endpoints instantly to render your database catalog in real time!
+                  </li>
+                </ol>
+              </div>
+
+            </div>
+
+            {/* Deep Technical Schema Breakdown */}
+            <div className="bg-amber-50 border-2 border-slate-900 p-4 rounded-xl mt-6">
+              <h5 className="font-sketch font-bold text-xs text-amber-900 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <span>⚡</span>
+                <span>{lang === 'hi' ? 'वर्डप्रेस मेटाडेटा मैपिंग विवरण (Core Metadata Mapping)' : 'WordPress Custom Fields Schema Details'}</span>
+              </h5>
+              <p className="text-[11px] text-slate-600 leading-relaxed mb-4">
+                {lang === 'hi' 
+                  ? 'जब आप वर्डप्रेस एडमिन में नया पीडीएफ जोड रहे हों, तो ये नीचे दिए गए कस्टम फ़ील्ड्स थीम्स के साथ ऑटोमैटिक सिंक्रोनाइज होकर आपके लाइव रिएक्ट फ्रंट-एंड डिज़ाइन को रेंडर करते हैं। इन्हें आप वर्डप्रेस एडमिन पैनल में "PDF Study Guides" के नीचे सीधे बदल सकते हैं:' 
+                  : 'When crafting study materials in WordPress, the enqueued theme automatically parses these exact custom post metadata keys, synchronizing them to the React layouts in real time. Do not change these names:'}
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-[10px] font-mono">
+                <div className="bg-white border border-slate-300 p-2.5 rounded-lg">
+                  <span className="block font-bold text-black font-mono">Key: pdf_file_size</span>
+                  <span className="text-slate-500 block leading-tight mt-0.5">{lang === 'hi' ? 'फाइल साइज जैसे "2.4 MB"' : 'File size indicator, e.g. "2.4 MB"'}</span>
+                </div>
+                <div className="bg-white border border-slate-300 p-2.5 rounded-lg">
+                  <span className="block font-bold text-black font-mono">Key: pdf_page_count</span>
+                  <span className="text-slate-500 block leading-tight mt-0.5">{lang === 'hi' ? 'कुल पृष्ठ संख्या (संख्यात्मक)' : 'Numerical total pages count'}</span>
+                </div>
+                <div className="bg-white border border-slate-300 p-2.5 rounded-lg">
+                  <span className="block font-bold text-black font-mono">Key: pdf_third_party_view_url</span>
+                  <span className="text-slate-500 block leading-tight mt-0.5">{lang === 'hi' ? 'गूगल ड्राइव या देखने का लिंक' : 'Secure reader layout URL to preview'}</span>
+                </div>
+                <div className="bg-white border border-slate-300 p-2.5 rounded-lg">
+                  <span className="block font-bold text-black font-mono">Key: pdf_third_party_download_url</span>
+                  <span className="text-slate-500 block leading-tight mt-0.5">{lang === 'hi' ? 'सुरक्षित डायरेक्ट डाउनलोड लिंक' : 'Secure direct CDN / Cloud download URL'}</span>
+                </div>
+                <div className="bg-white border border-slate-300 p-2.5 rounded-lg">
+                  <span className="block font-bold text-black font-mono">Key: pdf_cover_url</span>
+                  <span className="text-slate-500 block leading-tight mt-0.5">{lang === 'hi' ? 'कस्टम इमेज यूआरएल (वैकल्पिक)' : 'Custom Cover Art URL (optional)'}</span>
+                </div>
+                <div className="bg-white border border-slate-300 p-2.5 rounded-lg">
+                  <span className="block font-bold text-black font-mono">Key: pdf_members_only</span>
+                  <span className="text-slate-500 block leading-tight mt-0.5">{lang === 'hi' ? 'यूजर लॉग-इन गेट ("yes" / "no")' : 'Members restricted view ("yes" or "no")'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* WP Live Test Credentials */}
+            <div className="border-t-2 border-slate-900 border-dashed pt-4 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-3">
+              <span className="font-sketch font-bold uppercase tracking-wider">
+                {lang === 'hi' ? '★ वर्डप्रेस कम्पैटिबल थीम्स इंजन ★' : '★ WordPress Standalone Compatible Engine ★'}
+              </span>
+              <span className="font-mono bg-indigo-50 border border-indigo-200 px-3 py-1 text-indigo-700 rounded-lg shrink-0">
+                restBaseUrl: <strong className="font-bold">/wp-json/officers-academy/v1</strong>
+              </span>
+            </div>
+
+          </div>
+
         </div>
       ) : (
         /* Action Editor Form Tab - STYLED IN ULTRAPREMIUM CHIC MINIMAL RETRO WEB STYLE */

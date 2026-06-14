@@ -55,6 +55,9 @@ export default function Navbar({
             {/* Download WordPress Theme ZIP Button */}
             <a
               href="/api/download-wp-theme"
+              download="officers-academy-theme.zip"
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-3 py-1.5 rounded-none border-2 border-black bg-[#90E0EF] hover:bg-[#00B4D8] text-black font-extrabold text-xs flex items-center space-x-1 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_#000] transition-all cursor-pointer"
               title="Download Fully Functional WordPress Theme ZIP"
             >

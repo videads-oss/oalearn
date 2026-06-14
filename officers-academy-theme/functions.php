@@ -140,7 +140,7 @@ function officers_academy_save_fields($post_id) {
         }
     }
     $members = isset($_POST['pdf_members_only']) && $_POST['pdf_members_only'] === 'yes' ? 'yes' : 'no';
-    update_post_meta($post_id, $pdf_members_only, $members);
+    update_post_meta($post_id, 'pdf_members_only', $members);
 }
 add_action('save_post', 'officers_academy_save_fields');
 
@@ -232,6 +232,14 @@ function oa_inc_view($data) {
     $views++;
     update_post_meta($pid, 'pdf_click_count', $views);
     return new WP_REST_Response(array('success' => true, 'clickCount' => $views), 200);
+}
+
+function oa_inc_download($data) {
+    $pid = intval($data['id']);
+    $downloads = intval(get_post_meta($pid, 'pdf_download_count', true)) ?: 0;
+    $downloads++;
+    update_post_meta($pid, 'pdf_download_count', $downloads);
+    return new WP_REST_Response(array('success' => true, 'downloadCount' => $downloads), 200);
 }
 
 // Intercept routing so deep reloading works beautifully in SPA

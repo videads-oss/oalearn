@@ -444,14 +444,10 @@ add_action('template_redirect', 'officers_academy_spa_routing');
 
       // 3. Clear and copy fresh assets from dist/assets/ to themeDir/assets/
       if (fs.existsSync(assetsSource)) {
-        if (!fs.existsSync(themeAssetsDir)) {
-          fs.mkdirSync(themeAssetsDir, { recursive: true });
-        } else {
-          const localAssets = fs.readdirSync(themeAssetsDir);
-          for (const file of localAssets) {
-            fs.unlinkSync(path.join(themeAssetsDir, file));
-          }
+        if (fs.existsSync(themeAssetsDir)) {
+          fs.rmSync(themeAssetsDir, { recursive: true, force: true });
         }
+        fs.mkdirSync(themeAssetsDir, { recursive: true });
 
         const buildFiles = fs.readdirSync(assetsSource);
         for (const file of buildFiles) {
@@ -462,22 +458,28 @@ add_action('template_redirect', 'officers_academy_spa_routing');
         console.warn("[WP Exporter] Warning: No compiled client assets found under dist/assets. Build the app first.");
       }
 
-      // 4. Archive theme folder and Stream back to Express res stream!
-      res.setHeader("Content-Disposition", "attachment; filename=officers-academy-theme.zip");
-      res.setHeader("Content-Type", "application/zip");
-
+      // 4. Archive theme folder and write to a local ZIP file first
+      const zipDestPath = path.join(process.cwd(), "officers-academy-theme.zip");
+      const destStream = fs.createWriteStream(zipDestPath);
       const archive = new ZipArchive({ zlib: { level: 9 } });
-      archive.on("error", (archiveErr) => {
-        console.error("[WP Exporter] Archive failed:", archiveErr);
-        res.status(500).send("Dynamic WP Theme zipping error occurred.");
+
+      await new Promise<void>((resolve, reject) => {
+        destStream.on("close", () => {
+          resolve();
+        });
+
+        archive.on("error", (archiveErr) => {
+          console.error("[WP Exporter] Archive failed:", archiveErr);
+          reject(archiveErr);
+        });
+
+        archive.pipe(destStream);
+        archive.directory(themeDir, "officers-academy-theme");
+        archive.finalize();
       });
 
-      archive.pipe(res);
-      // Append the theme directory under 'officers-academy-theme' inside the zip
-      archive.directory(themeDir, "officers-academy-theme");
-      await archive.finalize();
-
-      console.log("[WP Exporter] Theme ZIP package generated and delivered successfully!");
+      console.log("[WP Exporter] Theme ZIP package generated on disk. Directing client download...");
+      res.download(zipDestPath, "officers-academy-theme.zip");
     } catch (e) {
       console.error("[WP Exporter] Severe error in exporter endpoint:", e);
       res.status(500).send("Severe server-side theme compression failed.");

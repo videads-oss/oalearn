@@ -199,7 +199,7 @@ function officers_academy_save_fields($post_id) {
         }
     }
     $members = isset($_POST['pdf_members_only']) && $_POST['pdf_members_only'] === 'yes' ? 'yes' : 'no';
-    update_post_meta($post_id, $pdf_members_only, $members);
+    update_post_meta($post_id, 'pdf_members_only', $members);
 }
 add_action('save_post', 'officers_academy_save_fields');
 
@@ -293,6 +293,14 @@ function oa_inc_view($data) {
     return new WP_REST_Response(array('success' => true, 'clickCount' => $views), 200);
 }
 
+function oa_inc_download($data) {
+    $pid = intval($data['id']);
+    $downloads = intval(get_post_meta($pid, 'pdf_download_count', true)) ?: 0;
+    $downloads++;
+    update_post_meta($pid, 'pdf_download_count', $downloads);
+    return new WP_REST_Response(array('success' => true, 'downloadCount' => $downloads), 200);
+}
+
 // Intercept routing so deep reloading works beautifully in SPA
 function officers_academy_spa_routing() {
     $uri = $_SERVER['REQUEST_URI'];
@@ -316,14 +324,10 @@ add_action('template_redirect', 'officers_academy_spa_routing');
 
     // 5. Clear and copy fresh compiled React assets from dist/assets/
     if (fs.existsSync(assetsSource)) {
-      if (!fs.existsSync(themeAssetsDir)) {
-        fs.mkdirSync(themeAssetsDir, { recursive: true });
-      } else {
-        const localAssets = fs.readdirSync(themeAssetsDir);
-        for (const file of localAssets) {
-          fs.unlinkSync(path.join(themeAssetsDir, file));
-        }
+      if (fs.existsSync(themeAssetsDir)) {
+        fs.rmSync(themeAssetsDir, { recursive: true, force: true });
       }
+      fs.mkdirSync(themeAssetsDir, { recursive: true });
 
       const buildFiles = fs.readdirSync(assetsSource);
       for (const file of buildFiles) {
